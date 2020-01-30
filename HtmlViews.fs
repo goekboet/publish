@@ -2,7 +2,7 @@ module Publish.HtmlViews
 
 open Giraffe.GiraffeViewEngine
 
-let layout =
+let layout (anticsrf : string) =
     html [] [
         head [] [
             title []  [ str "Publish" ];
@@ -17,7 +17,19 @@ let layout =
                     ]
                     p [] [
                         str "Start by authenticating yourself " ;
-                        a [ _href "/login"] [ str "here." ];
+                        form [
+                            _action "/login";
+                            _method "post";
+                        ] [
+                            input [
+                                _type "hidden";
+                                _name "__RequestVerificationToken";
+                                _value anticsrf
+                            ];
+                            button [
+                                _type "submit"
+                            ] [ str "here" ]
+                        ];
                     ]
                 ];
             ]

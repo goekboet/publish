@@ -5,7 +5,6 @@
     <UserSecretsId>b2c54ca1-3d29-410d-a82f-b3651bb0117c</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Models.fs" />
     <Compile Include="HtmlViews.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

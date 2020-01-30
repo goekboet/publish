@@ -18,6 +18,7 @@ open Serilog
 open Serilog.Formatting.Elasticsearch
 open Microsoft.AspNetCore.Authentication.OpenIdConnect
 open Microsoft.IdentityModel.Logging
+open Giraffe.GiraffeViewEngine
 
 
 // ---------------------------------
@@ -43,6 +44,16 @@ let authScheme
 
 let finishEarly : HttpFunc = Some >> Task.FromResult
 
+let antiForgeryValidate : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) -> task {
+        let af = ctx.GetService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
+        let! isValid = af.IsRequestValidAsync ctx  
+        if isValid then 
+            return! next ctx
+        else
+            return! Task.FromResult None         
+    }
+
 let loginHandler : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         task {
@@ -61,14 +72,26 @@ let loginHandler : HttpHandler =
 
 let parsingErrorHandler err = RequestErrors.BAD_REQUEST err
 
+let withAntiforgery (form : string -> XmlNode) : HttpHandler=
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let af = ctx.GetService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
+        let issue = af.GetAndStoreTokens ctx
+
+        htmlView (form issue.RequestToken) next ctx
+
 let webApp =
     choose [
         GET >=>
             choose [
-                route "/"              >=> htmlView layout 
-                route "/login"         >=> loginHandler
+                route "/"              >=> (withAntiforgery layout) 
+            ]
+        POST >=> antiForgeryValidate >=>
+            choose [
+                route "/login"          >=> loginHandler
             ]
         RequestErrors.notFound (text "Not Found") ]
+
+
 
 // ---------------------------------
 // Main
@@ -116,6 +139,7 @@ let configureServices (services : IServiceCollection) =
 
     services
         .AddGiraffe()
+        .AddAntiforgery()
         .AddAuthentication(authScheme)
         .AddCookie(cookieScheme, Action<CookieAuthenticationOptions>(cookieAuth)) 
         .AddOpenIdConnect(oidcScheme, Action<OpenIdConnectOptions>(configureOidc config))
