@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
+open Microsoft.AspNetCore.DataProtection
 open Microsoft.Extensions.Configuration
 open Microsoft.IdentityModel.Tokens
 open Microsoft.Extensions.DependencyInjection
@@ -19,6 +20,9 @@ open Serilog.Formatting.Elasticsearch
 open Microsoft.AspNetCore.Authentication.OpenIdConnect
 open Microsoft.IdentityModel.Logging
 open Giraffe.GiraffeViewEngine
+open System.Security.Cryptography.X509Certificates
+open System.IO
+open Microsoft.AspNetCore.Antiforgery
 
 
 // ---------------------------------
@@ -41,6 +45,15 @@ let authScheme
     options.DefaultScheme <- cookieScheme;
     options.DefaultChallengeScheme <- oidcScheme;
     ()
+
+let cookieAuth (o : CookieAuthenticationOptions) =
+    do
+        o.Cookie.HttpOnly     <- true
+        o.Cookie.SameSite     <- SameSiteMode.Lax
+        o.Cookie.Name         <- "auth"
+        o.Cookie.SecurePolicy <- CookieSecurePolicy.SameAsRequest
+        o.SlidingExpiration   <- true
+        o.ExpireTimeSpan      <- TimeSpan.FromDays 7.0
 
 let finishEarly : HttpFunc = Some >> Task.FromResult
 
@@ -70,14 +83,25 @@ let loginHandler : HttpHandler =
             return! next ctx
         } 
 
+let logoutHandler : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let returnUrl = 
+                ctx.TryGetQueryStringValue "returnurl"
+                |> Option.defaultValue "/"
+        
+        if ctx.User.Identity.IsAuthenticated
+        then signOut oidcScheme next ctx
+        else redirectTo false returnUrl next ctx
+
 let parsingErrorHandler err = RequestErrors.BAD_REQUEST err
 
-let withAntiforgery (form : string -> XmlNode) : HttpHandler=
+let withAntiforgery (form : string -> bool -> XmlNode) : HttpHandler=
     fun (next : HttpFunc) (ctx : HttpContext) ->
         let af = ctx.GetService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
         let issue = af.GetAndStoreTokens ctx
+        let loggedIn = ctx.User.Identity.IsAuthenticated
 
-        htmlView (form issue.RequestToken) next ctx
+        htmlView (form issue.RequestToken loggedIn) next ctx
 
 let webApp =
     choose [
@@ -87,7 +111,8 @@ let webApp =
             ]
         POST >=> antiForgeryValidate >=>
             choose [
-                route "/login"          >=> loginHandler
+                route "/login"          >=> loginHandler;
+                route "/logout"         >=> logoutHandler
             ]
         RequestErrors.notFound (text "Not Found") ]
 
@@ -97,14 +122,7 @@ let webApp =
 // Main
 // ---------------------------------
 
-let cookieAuth (o : CookieAuthenticationOptions) =
-    do
-        o.Cookie.HttpOnly     <- true
-        o.Cookie.Name         <- "publish.session"
-        o.Cookie.SecurePolicy <- CookieSecurePolicy.SameAsRequest
-        o.SlidingExpiration   <- true
-        o.ExpireTimeSpan      <- TimeSpan.FromDays 7.0
-    
+
 
 let configureApp (app : IApplicationBuilder) 
     =
@@ -129,9 +147,29 @@ let configureOidc
         
     
     options.AccessDeniedPath <- PathString("/");
+    options.Events.OnSignedOutCallbackRedirect <- 
+        fun ctx -> ctx.HttpContext.SignOutAsync(
+                      cookieScheme)
     ()
     
-
+let configureDataProtection
+    (conf : IConfiguration)
+    (services : IServiceCollection)
+    =
+    match conf.["Dataprotection:Type"] with
+        | "Docker" ->
+            services
+                .AddDataProtection()
+                .PersistKeysToFileSystem(
+                    DirectoryInfo(conf.["Dataprotection:KeyPath"])
+                )
+                .ProtectKeysWithCertificate(
+                    new X509Certificate2(
+                        conf.["Dataprotection:CertPath"],
+                        conf.["Dataprotection:CertPass"]
+                    )
+                ) |> ignore
+        | _ -> services.AddDataProtection() |> ignore
 
 let configureServices (services : IServiceCollection) =
     let serviceProvider = services.BuildServiceProvider()
@@ -139,13 +177,20 @@ let configureServices (services : IServiceCollection) =
 
     services
         .AddGiraffe()
-        .AddAntiforgery()
+        // .Configure<ForwardedHeadersOptions>(fun (opts : ForwardedHeadersOptions) ->
+        //     opts.KnownNetworks.Clear()
+        //     opts.KnownProxies.Clear())
+        .AddAntiforgery(fun opts -> 
+            opts.Cookie.HttpOnly     <- true
+            opts.Cookie.SameSite     <- SameSiteMode.Strict
+            opts.Cookie.Name         <- "anticsrf"
+            )
         .AddAuthentication(authScheme)
         .AddCookie(cookieScheme, Action<CookieAuthenticationOptions>(cookieAuth)) 
         .AddOpenIdConnect(oidcScheme, Action<OpenIdConnectOptions>(configureOidc config))
         |> ignore
 
-    services.AddDataProtection() |> ignore
+    configureDataProtection config services
 
 
 

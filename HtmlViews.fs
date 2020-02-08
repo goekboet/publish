@@ -2,7 +2,42 @@ module Publish.HtmlViews
 
 open Giraffe.GiraffeViewEngine
 
-let layout (anticsrf : string) =
+let antiCsrf (token : string) : XmlNode =
+    input [
+              _type "hidden";
+              _name "__RequestVerificationToken";
+              _value token
+          ]
+
+let notLoggedIn (token : string) : XmlNode =
+    p [] [
+             str "Start by authenticating yourself " ;
+             form [
+                 _action "/login";
+                 _method "post";
+             ] [
+                 antiCsrf token;
+                 button [
+                     _type "submit"
+                 ] [ str "here" ]
+             ];
+         ]
+
+let loggedIn (token : string) : XmlNode =
+    p [] [
+        str "Excellent! Soon we'll arrange for something other to do than ";
+        form [
+            _action "/logout";
+            _method "post";
+        ] [
+            antiCsrf token;
+            button [
+                _type "submit"
+            ] [ str "log out." ]
+        ]
+    ]
+
+let layout (anticsrf : string) (authenticated : bool) =
     html [] [
         head [] [
             title []  [ str "Publish" ];
@@ -16,22 +51,14 @@ let layout (anticsrf : string) =
                         str "Publish lets you post times that people can book you for. ";
                     ]
                     p [] [
-                        str "Start by authenticating yourself " ;
-                        form [
-                            _action "/login";
-                            _method "post";
-                        ] [
-                            input [
-                                _type "hidden";
-                                _name "__RequestVerificationToken";
-                                _value anticsrf
-                            ];
-                            button [
-                                _type "submit"
-                            ] [ str "here" ]
-                        ];
+                        if authenticated
+                        then loggedIn anticsrf
+                        else notLoggedIn anticsrf
+
                     ]
                 ];
             ]
         ]
     ]
+
+
