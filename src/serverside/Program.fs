@@ -16,7 +16,6 @@ open FSharp.Control.Tasks.V2.ContextInsensitive
 open Giraffe
 open Publish.SpaRoute
 open Publish.Models
-//open Publish.RefreshTokenHandling
 open System.Threading.Tasks
 open Serilog
 open Serilog.Formatting.Elasticsearch
@@ -25,22 +24,22 @@ open Microsoft.IdentityModel.Logging
 open Giraffe.GiraffeViewEngine
 open System.Security.Cryptography.X509Certificates
 open System.IO
-open Microsoft.AspNetCore.Antiforgery
 open System.Net.Http
-open System.Globalization
 open IdentityModel.Client
 open Microsoft.Extensions.Options
-open System.Threading
-open Microsoft.IdentityModel.Protocols.OpenIdConnect
+open System.Security.Claims
+open Publisher.Api
+open Publish.RefreshToken
 
 
 // ---------------------------------
 // Error handler
 // ---------------------------------
 
-let errorHandler (ex : Exception) (logger : Serilog.ILogger) =
-    // logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
-    clearResponse >=> setStatusCode 500 >=> text ex.Message
+let errorHandler (ex : Exception) (logger : Microsoft.Extensions.Logging.ILogger) =
+    logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
+    clearResponse
+    >=> ServerErrors.INTERNAL_ERROR ex.Message
 
 // ---------------------------------
 // Web app
@@ -54,57 +53,6 @@ let authScheme
     options.DefaultScheme <- cookieScheme;
     options.DefaultChallengeScheme <- oidcScheme;
     ()
-
-type AccessTokenFreshness =
-    Fresh of TimeSpan
-    | Stale of string
-    | Unavailiable
-
-let getTokenExpiration (ts : AuthenticationToken list)= 
-    List.tryFind (fun (x : AuthenticationToken) -> x.Name = "expires_at") ts
-    |> Option.map (fun x -> DateTimeOffset.Parse(x.Value, CultureInfo.InvariantCulture))
-
-let getRefreshtoken (ts : AuthenticationToken list) = 
-    List.tryFind (fun (x : AuthenticationToken) -> x.Name = "refresh_token") ts
-    |> Option.map (fun x -> x.Value)
-
-let getAccesstoken (ts : AuthenticationToken list) = 
-    List.tryFind (fun (x : AuthenticationToken) -> x.Name = "access_token") ts
-    |> Option.map (fun x -> x.Value)
-    
-let getAccesstokenFreshness 
-    (ts : AuthenticationToken list)
-    (now : DateTimeOffset) =
-    getTokenExpiration ts
-    |> Option.map (fun x -> x - now.AddMinutes(5.0))
-    |> Option.bind (fun x -> 
-        if x > TimeSpan.Zero 
-        then Some (Fresh x)
-        else getRefreshtoken ts |> Option.map Stale)
-    |> Option.defaultValue Unavailiable
-
-let useRefreshToken 
-    (http : HttpClient)
-    (oidcOpts : OpenIdConnectOptions)
-    (refreshToken : string)
-    (now : DateTimeOffset) =
-    task {
-        let! conf = oidcOpts.ConfigurationManager.GetConfigurationAsync(CancellationToken.None)
-        let! r = 
-            http.RequestRefreshTokenAsync ( new RefreshTokenRequest
-                ( Address = conf.TokenEndpoint,
-                  ClientId = oidcOpts.ClientId,
-                  ClientSecret = oidcOpts.ClientSecret,
-                  RefreshToken = refreshToken
-                ))
-        if r.IsError
-        then return Error (r.ErrorDescription)
-        else
-            let expiresat = now.AddSeconds(float r.ExpiresIn).ToString("o", CultureInfo.InvariantCulture)
-            return Ok ([ AuthenticationToken (Name = "access_token", Value = r.AccessToken)
-                        ; AuthenticationToken (Name = "refresh_token", Value = r.RefreshToken)
-                        ; AuthenticationToken (Name = "expires_at", Value = expiresat)])
-    }
 
 let refreshTokensIfStale 
     (ctx : CookieValidatePrincipalContext) =
@@ -135,26 +83,7 @@ let refreshTokensIfStale
                 ctx.RejectPrincipal()
     } :> Task
 
-let requestRefreshtokenRevokation
-    (http : HttpClient)
-    (oidcOpts : OpenIdConnectOptions)
-    (refreshToken : string)
-    =
-    task {
-        let! conf = oidcOpts.ConfigurationManager.GetConfigurationAsync(CancellationToken.None)
-        let! r = 
-            http.RevokeTokenAsync(new TokenRevocationRequest
-                ( Address = conf.AdditionalData.["revocation_endpoint"].ToString(),
-                  ClientId = oidcOpts.ClientId,
-                  ClientSecret = oidcOpts.ClientSecret,
-                  Token = refreshToken,
-                  TokenTypeHint = "refresh_token"
-                ))
-        
-        if r.IsError
-        then return Error r.Error
-        else return Ok ()
-    }
+
 
 let revokeTokensInCookieProperties
     (ctx : CookieSigningOutContext)
@@ -232,9 +161,48 @@ let logoutHandler : HttpHandler =
         then (signOut cookieScheme >=> signOut oidcScheme) next ctx
         else redirectTo false returnUrl next ctx
 
+let toClaims (h : Publishername) = 
+    [ Claim ("broker.host.name", h.name)
+    ; Claim ("broker.host.handle", h.handle) 
+    ]
+
+let fromClaims (principal : ClaimsPrincipal)
+    =
+    let name = Seq.tryFind (fun (x : Claim) -> x.Type = "broker.host.name") principal.Claims
+    let handle = Seq.tryFind (fun (x : Claim) -> x.Type = "broker.host.handle") principal.Claims
+
+    Option.map2 
+        (fun (n : Claim) (h : Claim) -> { name = n.Value; handle = h.Value }) 
+        name 
+        handle
+
+let addPublisher : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        task {
+            let httpFactory = ctx.GetService<IHttpClientFactory>()
+            
+            let client = httpFactory.CreateClient("BrokerClient")
+            let! tkn = ctx.GetTokenAsync("access_token")
+            client.SetBearerToken tkn
+
+            let! payload = ctx.BindJsonAsync<Publishername>()
+            let! publisher = registerPublisherName client payload
+
+            let! auth = ctx.AuthenticateAsync()
+            let user = auth.Principal
+            let props = auth.Properties
+            let claims = toClaims publisher
+            let brokerPublisher = ClaimsIdentity claims
+            user.AddIdentity brokerPublisher
+            
+            do! ctx.SignInAsync(user, props) 
+
+            return! Successful.OK publisher next ctx
+        }
+
 let parsingErrorHandler err = RequestErrors.BAD_REQUEST err
 
-let withAntiforgery (form : string -> string option -> Hostname option -> XmlNode) : HttpHandler=
+let withAntiforgery (form : string -> string option -> Publishername option -> XmlNode) : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         let af = ctx.GetService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
         let issue = af.GetAndStoreTokens ctx
@@ -243,20 +211,19 @@ let withAntiforgery (form : string -> string option -> Hostname option -> XmlNod
             then Some ctx.User.Identity.Name
             else None
 
-        let hostName = None
+        let hostName = fromClaims ctx.User
 
         htmlView (form issue.RequestToken session hostName) next ctx
 
 let webApp =
     choose [
-        GET >=>
+        GET >=> withAntiforgery layout 
+            
+        POST >=>
             choose [
-                route "/"              >=> (withAntiforgery layout) 
-            ]
-        POST >=> antiForgeryValidate >=>
-            choose [
-                route "/login"          >=> loginHandler;
-                route "/logout"         >=> logoutHandler
+                route "/api/publisher"   >=> addPublisher; 
+                route "/login"          >=> antiForgeryValidate >=> loginHandler;
+                route "/logout"         >=> antiForgeryValidate >=> logoutHandler
             ]
         RequestErrors.notFound (text "Not Found") ]
 
@@ -273,7 +240,28 @@ let configureApp (app : IApplicationBuilder)
     app.UseStaticFiles()
        .UseAuthentication()
        .UseResponseCaching()
+       .UseGiraffeErrorHandler(errorHandler)
        .UseGiraffe webApp
+
+let signFirstHostnameForUser 
+    (ctx : TicketReceivedContext)
+    =
+    task {
+        let httpClientFactory = ctx.HttpContext.GetService<IHttpClientFactory>()
+        let accessToken = ctx.Properties.GetTokenValue("access_token")
+        let http = httpClientFactory.CreateClient("BrokerClient")
+        http.SetBearerToken(accessToken) |> ignore
+
+        match! getRegisteredPublishername http with
+            | Some hn ->
+                let claims = toClaims hn
+                let brokerHostname = ClaimsIdentity claims 
+                ctx.Principal.AddIdentity brokerHostname
+                
+                return! Task.CompletedTask
+            | _         -> 
+                return! Task.CompletedTask
+    } :> Task
 
 let configureOidc
     (config : IConfiguration)
@@ -284,15 +272,15 @@ let configureOidc
     options.GetClaimsFromUserInfoEndpoint <- true;
     options.SaveTokens <- true
     options.Scope.Add("offline_access")
+    options.Scope.Add("publish")
     options.ClaimActions.MapAllExcept("iss", "nbf", "exp", "aud", "nonce", "iat", "c_hash")
     options.TokenValidationParameters <- 
         TokenValidationParameters (NameClaimType = IdentityModel.JwtClaimTypes.Name, RoleClaimType = IdentityModel.JwtClaimTypes.Role)
         
     
     options.AccessDeniedPath <- PathString("/");
-    options.Events.OnSignedOutCallbackRedirect <- 
-        fun ctx -> ctx.HttpContext.SignOutAsync(
-                      cookieScheme)
+    options.Events.OnTicketReceived <- Func<TicketReceivedContext, Task>(signFirstHostnameForUser)
+          
     ()
     
 let configureDataProtection
@@ -352,8 +340,6 @@ let configureServices (services : IServiceCollection) =
 
     configureDataProtection config services
 
-
-
 let configureLogging
     (host : WebHostBuilderContext)
     (logging : LoggerConfiguration)
@@ -379,3 +365,5 @@ let main _ =
         .Build()
         .Run()
     0
+
+    

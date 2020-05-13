@@ -1,6 +1,6 @@
-module SessionState exposing (SessionState, init, recordStaleness, isSignedIn, sessionstateView, sessionStateStyle)
+module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, sessionStateStyle, signinLink)
 
-import Html exposing (Html, Attribute, p, i, input, text, b, button, a)
+import Html exposing (Html, Attribute, p, i, input, text, b, button, a, div, h3)
 import Route exposing (Route, logoutUrl, loginUrl)
 import Html.Attributes exposing (class, action, method, type_, name, value)
 import Html.Events exposing (onClick)
@@ -31,6 +31,7 @@ sessionStateText : List (Attribute Msg)
 sessionStateText =
     [ class "alt-txt-col"
     , class "small-text"
+    , class "inline"
     ]
 
 logoutTrigger : Route -> String -> Html Msg
@@ -43,6 +44,7 @@ logoutTrigger route csrf =
         ]
         [ button
             [ type_ "submit"
+            , class "alt-txt-col"
             ]
             [ text "log out" ]
         , input
@@ -63,6 +65,7 @@ loginTrigger route csrf =
         ]
         [ button
             [ type_ "submit"
+            , class "main-txt-col"
             ]
             [ text "login" ]
         , input
@@ -75,9 +78,28 @@ loginTrigger route csrf =
 
 sessionStateStyle : List (Attribute Msg)
 sessionStateStyle =
-    [ class "pt-b-05em"
+    [ class "pb-1em"
     , class "heavy-bkg"
     ]
+
+signinLink : Route -> String -> SessionState -> Html Msg
+signinLink r csrf ss =
+    case ss of
+        None -> div [ class "notFoundView" ] 
+            [ h3 [] [ text "Login required" ]
+            , p
+                []
+                [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
+                , loginTrigger r csrf
+                , text " so we know who you are."
+                ]
+            ]
+        
+            
+    
+        _ -> text ""
+            
+    
 
 sessionstateView : Route -> String -> SessionState -> List (Html Msg)
 sessionstateView r csrf s =
@@ -101,14 +123,4 @@ sessionstateView r csrf s =
                 , text " again."
                 ]
             ]
-
-        None ->
-            [ p
-                [ class "alt-txt-col"
-                , class "small-text"
-                ]
-                [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
-                , loginTrigger r csrf
-                , text " so we know who you are."
-                ]
-            ]
+        None -> []

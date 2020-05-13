@@ -5,7 +5,9 @@
     <UserSecretsId>b2c54ca1-3d29-410d-a82f-b3651bb0117c</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Models.fs" />
+    <Compile Include="Features/Models.fs" />
+    <Compile Include="Features/Api.fs" />
+    <Compile Include="Features/RefreshToken.fs" />
     <Compile Include="SpaRoute.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
