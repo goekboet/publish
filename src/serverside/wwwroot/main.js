@@ -6757,17 +6757,44 @@ var $elm$html$Html$Attributes$stringProperty = F2(
 	});
 var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
 var $elm$html$Html$div = _VirtualDom_node('div');
-var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $elm$html$Html$a = _VirtualDom_node('a');
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $elm$html$Html$Attributes$href = function (url) {
 	return A2(
 		$elm$html$Html$Attributes$stringProperty,
 		'href',
 		_VirtualDom_noJavaScriptUri(url));
 };
-var $elm$html$Html$p = _VirtualDom_node('p');
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+var $author$project$Main$homelink = A2(
+	$elm$html$Html$div,
+	_List_fromArray(
+		[
+			$elm$html$Html$Attributes$class('content'),
+			$elm$html$Html$Attributes$class('heavy')
+		]),
+	_List_fromArray(
+		[
+			A2(
+			$elm$html$Html$h1,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$a,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$href('/')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Publish')
+						]))
+				]))
+		]));
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
+var $elm$html$Html$p = _VirtualDom_node('p');
 var $author$project$Main$notFoundText = A2(
 	$elm$html$Html$p,
 	_List_Nil,
@@ -6832,7 +6859,7 @@ var $author$project$Hostname$addTimesLink = function (h) {
 		$elm$html$Html$a,
 		_List_fromArray(
 			[
-				$elm$html$Html$Attributes$class('addTimesLink'),
+				$elm$html$Html$Attributes$class('navlink'),
 				$elm$html$Html$Attributes$href(
 				$author$project$Hostname$publishUrl(h))
 			]),
@@ -6860,7 +6887,7 @@ var $author$project$Hostname$errorView = function (_v0) {
 				$elm$html$Html$text('For some reason we could not register your submission. You\'re welcome to try again.')
 			]));
 };
-var $elm$html$Html$h4 = _VirtualDom_node('h4');
+var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $author$project$Hostname$handleDescription = A2(
 	$elm$core$String$join,
 	' ',
@@ -6926,7 +6953,6 @@ var $author$project$Hostname$hasError = F2(
 	});
 var $elm$html$Html$input = _VirtualDom_node('input');
 var $elm$html$Html$label = _VirtualDom_node('label');
-var $elm$html$Html$li = _VirtualDom_node('li');
 var $elm$html$Html$Attributes$name = $elm$html$Html$Attributes$stringProperty('name');
 var $elm$html$Html$Events$alwaysStop = function (x) {
 	return _Utils_Tuple2(x, true);
@@ -6960,24 +6986,27 @@ var $elm$html$Html$Events$onInput = function (tagger) {
 			$elm$html$Html$Events$alwaysStop,
 			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
 };
+var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
-var $elm$html$Html$ul = _VirtualDom_node('ul');
 var $author$project$Hostname$handleInputView = function (hf) {
-	var markAsValid = F2(
+	var pass = F2(
 		function (i, e) {
 			return A2($author$project$Hostname$hasError, i, e) ? $elm$html$Html$Attributes$classList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('invalid', true)
+						_Utils_Tuple2('pass', false)
 					])) : $elm$html$Html$Attributes$classList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('valid', true)
+						_Utils_Tuple2('pass', true)
 					]));
 		});
 	return A2(
 		$elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('forminput')
+			]),
 		_List_fromArray(
 			[
 				A2(
@@ -7000,30 +7029,24 @@ var $author$project$Hostname$handleInputView = function (hf) {
 					]),
 				_List_Nil),
 				A2(
-				$elm$html$Html$ul,
-				_List_Nil,
+				$elm$html$Html$span,
 				_List_fromArray(
 					[
-						A2(
-						$elm$html$Html$li,
-						_List_fromArray(
-							[
-								A2(markAsValid, hf.handle, $author$project$Hostname$BadLength)
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('The handle needs to be between 2 and 64 characters long.')
-							])),
-						A2(
-						$elm$html$Html$li,
-						_List_fromArray(
-							[
-								A2(markAsValid, hf.handle, $author$project$Hostname$InvalidChars)
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Allowed characters in the handle are lower-case characters, digits, _ and -.')
-							]))
+						A2(pass, hf.handle, $author$project$Hostname$BadLength)
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('The handle needs to be between 2 and 64 characters long.')
+					])),
+				A2(
+				$elm$html$Html$span,
+				_List_fromArray(
+					[
+						A2(pass, hf.handle, $author$project$Hostname$InvalidChars)
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Allowed characters in the handle are lower-case characters, digits, _ and -.')
 					]))
 			]));
 };
@@ -7032,13 +7055,6 @@ var $author$project$Hostname$hostDescription = A2(
 	' ',
 	_List_fromArray(
 		['Before you can publish times you need to submit a hostname.', 'Think of it as an entry in the yellow pages,', 'something like Fredrics fortunetelling or Johnson counselling.', 'This platform is about advertizing some service over videochat.']));
-var $author$project$Hostname$hostnameStyle = _List_fromArray(
-	[
-		$elm$html$Html$Attributes$class('pt-b-05em'),
-		$elm$html$Html$Attributes$class('light-bkg'),
-		$elm$html$Html$Attributes$class('hostNameSubmission'),
-		$elm$html$Html$Attributes$class('main-txt-col')
-	]);
 var $author$project$Hostname$nameDescription = A2(
 	$elm$core$String$join,
 	' ',
@@ -7048,21 +7064,24 @@ var $author$project$Model$NameValueChanged = function (a) {
 	return {$: 'NameValueChanged', a: a};
 };
 var $author$project$Hostname$nameInputView = function (hf) {
-	var markAsValid = F2(
+	var pass = F2(
 		function (i, e) {
 			return A2($author$project$Hostname$hasError, i, e) ? $elm$html$Html$Attributes$classList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('invalid', true)
+						_Utils_Tuple2('pass', false)
 					])) : $elm$html$Html$Attributes$classList(
 				_List_fromArray(
 					[
-						_Utils_Tuple2('valid', true)
+						_Utils_Tuple2('pass', true)
 					]));
 		});
 	return A2(
 		$elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('forminput')
+			]),
 		_List_fromArray(
 			[
 				A2(
@@ -7079,26 +7098,20 @@ var $author$project$Hostname$nameInputView = function (hf) {
 				$elm$html$Html$input,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$type_('name'),
+						$elm$html$Html$Attributes$type_('text'),
 						$elm$html$Html$Attributes$name('name'),
 						$elm$html$Html$Events$onInput($author$project$Model$NameValueChanged)
 					]),
 				_List_Nil),
 				A2(
-				$elm$html$Html$ul,
-				_List_Nil,
+				$elm$html$Html$span,
 				_List_fromArray(
 					[
-						A2(
-						$elm$html$Html$li,
-						_List_fromArray(
-							[
-								A2(markAsValid, hf.name, $author$project$Hostname$BadLength)
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('The name needs to be between 2 and 128 characters long.')
-							]))
+						A2(pass, hf.name, $author$project$Hostname$BadLength)
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('The name needs to be between 2 and 128 characters long.')
 					]))
 			]));
 };
@@ -7151,14 +7164,23 @@ var $author$project$Hostname$submitButton = F2(
 					break _v0$0;
 				} else {
 					return A2(
-						$elm$html$Html$button,
+						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Events$onClick($author$project$Model$SubmitHost)
+								$elm$html$Html$Attributes$class('formbuttons')
 							]),
 						_List_fromArray(
 							[
-								$elm$html$Html$text('Submit')
+								A2(
+								$elm$html$Html$button,
+								_List_fromArray(
+									[
+										$elm$html$Html$Events$onClick($author$project$Model$SubmitHost)
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Submit')
+									]))
 							]));
 				}
 			} else {
@@ -7166,59 +7188,71 @@ var $author$project$Hostname$submitButton = F2(
 					break _v0$0;
 				} else {
 					return A2(
-						$elm$html$Html$button,
+						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$disabled(true)
+								$elm$html$Html$Attributes$class('formbuttons')
 							]),
 						_List_fromArray(
 							[
-								$elm$html$Html$text('Submit')
+								A2(
+								$elm$html$Html$button,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$disabled(true)
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Submit')
+									]))
 							]));
 				}
 			}
 		}
 		return A2(
-			$elm$html$Html$button,
-			_List_Nil,
+			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$text('Submitting')
+					$elm$html$Html$Attributes$class('formbuttons')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$button,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$disabled(true)
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Submitting')
+						]))
 				]));
 	});
 var $author$project$Hostname$hostnameForm = F2(
 	function (hf, submitting) {
 		return A2(
 			$elm$html$Html$div,
-			$author$project$Hostname$hostnameStyle,
+			_List_Nil,
 			_List_fromArray(
 				[
 					A2(
-					$elm$html$Html$h3,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('large-text')
-						]),
+					$elm$html$Html$h2,
+					_List_Nil,
 					_List_fromArray(
 						[
 							$elm$html$Html$text('Submit a hostname')
 						])),
 					A2(
 					$elm$html$Html$p,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('small-text')
-						]),
+					_List_Nil,
 					_List_fromArray(
 						[
 							$elm$html$Html$text($author$project$Hostname$hostDescription)
 						])),
 					A2(
-					$elm$html$Html$h4,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('small-text')
-						]),
+					$elm$html$Html$h3,
+					_List_Nil,
 					_List_fromArray(
 						[
 							A2(
@@ -7231,22 +7265,15 @@ var $author$project$Hostname$hostnameForm = F2(
 						])),
 					A2(
 					$elm$html$Html$p,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('small-text'),
-							$elm$html$Html$Attributes$class('')
-						]),
+					_List_Nil,
 					_List_fromArray(
 						[
 							$elm$html$Html$text($author$project$Hostname$handleDescription)
 						])),
 					$author$project$Hostname$handleInputView(hf),
 					A2(
-					$elm$html$Html$h4,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('small-text')
-						]),
+					$elm$html$Html$h3,
+					_List_Nil,
 					_List_fromArray(
 						[
 							A2(
@@ -7259,10 +7286,7 @@ var $author$project$Hostname$hostnameForm = F2(
 						])),
 					A2(
 					$elm$html$Html$p,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('small-text')
-						]),
+					_List_Nil,
 					_List_fromArray(
 						[
 							$elm$html$Html$text($author$project$Hostname$nameDescription)
@@ -7320,6 +7344,41 @@ var $elm$html$Html$Attributes$action = function (uri) {
 		_VirtualDom_noJavaScriptUri(uri));
 };
 var $elm$html$Html$form = _VirtualDom_node('form');
+var $elm$html$Html$Attributes$method = $elm$html$Html$Attributes$stringProperty('method');
+var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
+var $author$project$SessionState$formLink = F3(
+	function (csrf, url, label) {
+		return A2(
+			$elm$html$Html$form,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$action(url),
+					$elm$html$Html$Attributes$method('post'),
+					$elm$html$Html$Attributes$class('formlink')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$button,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$type_('submit')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(label)
+						])),
+					A2(
+					$elm$html$Html$input,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$type_('hidden'),
+							$elm$html$Html$Attributes$name('__RequestVerificationToken'),
+							$elm$html$Html$Attributes$value(csrf)
+						]),
+					_List_Nil)
+				]));
+	});
 var $elm$url$Url$Builder$absolute = F2(
 	function (pathSegments, parameters) {
 		return '/' + (A2($elm$core$String$join, '/', pathSegments) + $elm$url$Url$Builder$toQuery(parameters));
@@ -7352,91 +7411,14 @@ var $author$project$Route$loginUrl = function (r) {
 				$author$project$Route$routeToUrl(r))
 			]));
 };
-var $elm$html$Html$Attributes$method = $elm$html$Html$Attributes$stringProperty('method');
-var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
 var $author$project$SessionState$loginTrigger = F2(
 	function (route, csrf) {
-		return A2(
-			$elm$html$Html$form,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$action(
-					$author$project$Route$loginUrl(route)),
-					$elm$html$Html$Attributes$method('post'),
-					$elm$html$Html$Attributes$class('inline'),
-					$elm$html$Html$Attributes$class('logoutTrigger')
-				]),
-			_List_fromArray(
-				[
-					A2(
-					$elm$html$Html$button,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('submit'),
-							$elm$html$Html$Attributes$class('main-txt-col')
-						]),
-					_List_fromArray(
-						[
-							$elm$html$Html$text('login')
-						])),
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('hidden'),
-							$elm$html$Html$Attributes$name('__RequestVerificationToken'),
-							$elm$html$Html$Attributes$value(csrf)
-						]),
-					_List_Nil)
-				]));
+		return A3(
+			$author$project$SessionState$formLink,
+			csrf,
+			$author$project$Route$loginUrl(route),
+			'Login');
 	});
-var $author$project$SessionState$signinLink = F3(
-	function (r, csrf, ss) {
-		if (ss.$ === 'None') {
-			return A2(
-				$elm$html$Html$div,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('notFoundView')
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$h3,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Login required')
-							])),
-						A2(
-						$elm$html$Html$p,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to '),
-								A2($author$project$SessionState$loginTrigger, r, csrf),
-								$elm$html$Html$text(' so we know who you are.')
-							]))
-					]));
-		} else {
-			return $elm$html$Html$text('');
-		}
-	});
-var $author$project$HomeLink$homelink = _List_fromArray(
-	[
-		A2(
-		$elm$html$Html$a,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$href('/'),
-				$elm$html$Html$Attributes$class('alt-txt-col'),
-				$elm$html$Html$Attributes$class('large-text')
-			]),
-		_List_fromArray(
-			[
-				$elm$html$Html$text('Publish')
-			]))
-	]);
 var $author$project$Route$logoutUrl = function (r) {
 	return A2(
 		$elm$url$Url$Builder$absolute,
@@ -7452,121 +7434,106 @@ var $author$project$Route$logoutUrl = function (r) {
 };
 var $author$project$SessionState$logoutTrigger = F2(
 	function (route, csrf) {
-		return A2(
-			$elm$html$Html$form,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$action(
-					$author$project$Route$logoutUrl(route)),
-					$elm$html$Html$Attributes$method('post'),
-					$elm$html$Html$Attributes$class('inline'),
-					$elm$html$Html$Attributes$class('logoutTrigger')
-				]),
-			_List_fromArray(
-				[
-					A2(
-					$elm$html$Html$button,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('submit'),
-							$elm$html$Html$Attributes$class('alt-txt-col')
-						]),
-					_List_fromArray(
-						[
-							$elm$html$Html$text('log out')
-						])),
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('hidden'),
-							$elm$html$Html$Attributes$name('__RequestVerificationToken'),
-							$elm$html$Html$Attributes$value(csrf)
-						]),
-					_List_Nil)
-				]));
+		return A3(
+			$author$project$SessionState$formLink,
+			csrf,
+			$author$project$Route$logoutUrl(route),
+			'Logout');
 	});
-var $author$project$SessionState$sessionStateText = _List_fromArray(
-	[
-		$elm$html$Html$Attributes$class('alt-txt-col'),
-		$elm$html$Html$Attributes$class('small-text'),
-		$elm$html$Html$Attributes$class('inline')
-	]);
 var $author$project$SessionState$sessionstateView = F3(
 	function (r, csrf, s) {
 		switch (s.$) {
 			case 'Fresh':
 				var name = s.a;
-				return _List_fromArray(
-					[
-						A2(
-						$elm$html$Html$p,
-						$author$project$SessionState$sessionStateText,
-						_List_fromArray(
-							[
-								$elm$html$Html$text('You are logged in as ')
-							])),
-						A2(
-						$elm$html$Html$b,
-						$author$project$SessionState$sessionStateText,
-						_List_fromArray(
-							[
-								$elm$html$Html$text(name)
-							])),
-						$elm$html$Html$text('.'),
-						A2($author$project$SessionState$logoutTrigger, r, csrf)
-					]);
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('You\'re logged in as ' + name),
+							$elm$html$Html$text('. '),
+							A2($author$project$SessionState$logoutTrigger, r, csrf)
+						]));
 			case 'Stale':
-				return _List_fromArray(
-					[
-						A2(
-						$elm$html$Html$p,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('alt-txt-col'),
-								$elm$html$Html$Attributes$class('small-text')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Your session has expired. You need to '),
-								A2($author$project$SessionState$loginTrigger, r, csrf),
-								$elm$html$Html$text(' again.')
-							]))
-					]);
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Your session has expired. You need to '),
+							A2($author$project$SessionState$loginTrigger, r, csrf),
+							$elm$html$Html$text(' again.')
+						]));
 			default:
-				return _List_Nil;
+				return $elm$html$Html$text('');
 		}
 	});
-var $author$project$Main$topView = function (m) {
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$class('topview')
-			]),
-		_List_fromArray(
-			[
-				A2($elm$html$Html$div, _List_Nil, $author$project$HomeLink$homelink),
-				A2(
-				$elm$html$Html$div,
-				_List_Nil,
-				A3($author$project$SessionState$sessionstateView, m.route, m.antiCsrf, m.sessionState))
-			]));
-};
+var $author$project$SessionState$signinLink = F3(
+	function (r, csrf, ss) {
+		if (ss.$ === 'None') {
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Login required')
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to '),
+							A2($author$project$SessionState$loginTrigger, r, csrf),
+							$elm$html$Html$text(' so we know who you are.')
+						]))
+				]);
+		} else {
+			return _List_Nil;
+		}
+	});
 var $author$project$Main$routeToView = function (m) {
 	var _v0 = m.route;
 	if (_v0.$ === 'NotFound') {
 		return _List_fromArray(
 			[
-				$author$project$Main$topView(m),
-				$author$project$Main$notFoundView
+				$author$project$Main$homelink,
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('content'),
+						$elm$html$Html$Attributes$class('light')
+					]),
+				_List_fromArray(
+					[$author$project$Main$notFoundView]))
 			]);
 	} else {
 		return _List_fromArray(
 			[
-				$author$project$Main$topView(m),
-				A3($author$project$SessionState$signinLink, m.route, m.antiCsrf, m.sessionState),
-				$author$project$Main$renderHostnameForm(m)
+				$author$project$Main$homelink,
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('content'),
+						$elm$html$Html$Attributes$class('light')
+					]),
+				$elm$core$List$concat(
+					_List_fromArray(
+						[
+							A3($author$project$SessionState$signinLink, m.route, m.antiCsrf, m.sessionState),
+							_List_fromArray(
+							[
+								A3($author$project$SessionState$sessionstateView, m.route, m.antiCsrf, m.sessionState)
+							]),
+							_List_fromArray(
+							[
+								$author$project$Main$renderHostnameForm(m)
+							])
+						])))
 			]);
 	}
 };

@@ -6,10 +6,9 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Hostname exposing (HostnameForm, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
 import Url
-import HomeLink exposing (homelink, homeLinkStyle)
 import Model exposing (Msg(..))
 import Route exposing (Route(..), toRoute)
-import SessionState exposing (SessionState(..), sessionstateView, sessionStateStyle, signinLink)
+import SessionState exposing (SessionState(..), sessionstateView, signinLink)
 
 
 -- MAIN
@@ -45,12 +44,6 @@ type HostnameSubmission =
   | Submitting HostnameForm
   | FailedSubmit HostnameForm
   | Submitted Model.Hostname
-
-getCurrentPublisher : HostnameSubmission -> Maybe Model.Hostname
-getCurrentPublisher s =
-  case s of
-    Submitted h -> Just h
-    _ -> Nothing
 
 initHostnameSubmission : Maybe String -> Maybe String -> HostnameSubmission
 initHostnameSubmission name handle =
@@ -150,13 +143,6 @@ renderHostnameForm m =
     (_, FailedSubmit hf) -> hostnameForm hf False
     (_, Submitted h) -> addTimesLink h 
 
-topView : Model -> Html Msg
-topView m =
-  div [ class "topview" ] 
-    [ div [] homelink 
-    , div [] (sessionstateView m.route m.antiCsrf m.sessionState)
-    ]
-
 notFoundText : Html Msg
 notFoundText = 
   p [] 
@@ -171,18 +157,33 @@ notFoundView =
       [ h3 [] [ text "Broken link" ]
       , notFoundText ]
 
+homelink : Html msg
+homelink =
+    div [ class "content"
+        , class "heavy" ] 
+        [ h1 [] 
+          [ a
+            [ href "/"
+            ]
+            [ text "Publish" ]
+          ]
+        ]
+
 routeToView : Model -> List (Html Msg)
 routeToView m =
     case m.route of
         NotFound ->
-            [ topView m
-            , notFoundView 
+            [ homelink
+            , div [ class "content", class "light" ] [notFoundView] 
             ]
 
         HomeRoute ->
-            [ topView m
-            , signinLink m.route m.antiCsrf m.sessionState 
-            , renderHostnameForm m
+            [ homelink
+            , div [ class "content", class "light" ] 
+            ( List.concat 
+                [ signinLink m.route m.antiCsrf m.sessionState
+                , [ sessionstateView m.route m.antiCsrf m.sessionState ]
+                , [ renderHostnameForm m]] )
             ]
 
 view : Model -> Browser.Document Msg

@@ -1,6 +1,6 @@
-module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, sessionStateStyle, signinLink)
+module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, signinLink)
 
-import Html exposing (Html, Attribute, p, i, input, text, b, button, a, div, h3)
+import Html exposing (Html, Attribute, p, i, input, text, b, button, a, div, h3, h2)
 import Route exposing (Route, logoutUrl, loginUrl)
 import Html.Attributes exposing (class, action, method, type_, name, value)
 import Html.Events exposing (onClick)
@@ -27,67 +27,38 @@ isSignedIn s =
 
         _ ->
             False
-sessionStateText : List (Attribute Msg)
-sessionStateText =
-    [ class "alt-txt-col"
-    , class "small-text"
-    , class "inline"
-    ]
+
+formLink : String -> String -> String -> Html Msg
+formLink csrf url label =
+    Html.form
+        [ action url
+        , method "post"
+        , class "formlink"
+        ]
+        [ button
+            [ type_ "submit"
+            ]
+            [ text label ]
+        , input
+            [ type_ "hidden"
+            , name "__RequestVerificationToken"
+            , value csrf
+            ]
+            []
+        ]
 
 logoutTrigger : Route -> String -> Html Msg
 logoutTrigger route csrf =
-    Html.form
-        [ action (logoutUrl route)
-        , method "post"
-        , class "inline"
-        , class "logoutTrigger"
-        ]
-        [ button
-            [ type_ "submit"
-            , class "alt-txt-col"
-            ]
-            [ text "log out" ]
-        , input
-            [ type_ "hidden"
-            , name "__RequestVerificationToken"
-            , value csrf
-            ]
-            []
-        ]
-
+    formLink csrf (logoutUrl route) "Logout"
 loginTrigger : Route -> String -> Html Msg
 loginTrigger route csrf =
-    Html.form
-        [ action (loginUrl route)
-        , method "post"
-        , class "inline"
-        , class "logoutTrigger"
-        ]
-        [ button
-            [ type_ "submit"
-            , class "main-txt-col"
-            ]
-            [ text "login" ]
-        , input
-            [ type_ "hidden"
-            , name "__RequestVerificationToken"
-            , value csrf
-            ]
-            []
-        ]
+    formLink csrf (loginUrl route) "Login"
 
-sessionStateStyle : List (Attribute Msg)
-sessionStateStyle =
-    [ class "pb-1em"
-    , class "heavy-bkg"
-    ]
-
-signinLink : Route -> String -> SessionState -> Html Msg
+signinLink : Route -> String -> SessionState -> List (Html Msg)
 signinLink r csrf ss =
     case ss of
-        None -> div [ class "notFoundView" ] 
-            [ h3 [] [ text "Login required" ]
-            , p
+        None -> [ h2 [] [ text "Login required" ]
+                , p
                 []
                 [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
                 , loginTrigger r csrf
@@ -97,30 +68,27 @@ signinLink r csrf ss =
         
             
     
-        _ -> text ""
+        _ -> []
             
     
 
-sessionstateView : Route -> String -> SessionState -> List (Html Msg)
+sessionstateView : Route -> String -> SessionState -> Html Msg
 sessionstateView r csrf s =
     case s of
         Fresh name ->
-            [ p
-                sessionStateText
-                [ text "You are logged in as " ]
-            , b sessionStateText [ text name ]
-            , text "."
-            , logoutTrigger r csrf
-            ]
+            p []
+              [ text ("You're logged in as " ++ name)
+              , text ". "
+              , logoutTrigger r csrf
+              ]
+            
 
         Stale ->
-            [ p
-                [ class "alt-txt-col"
-                , class "small-text"
-                ]
+            p
+                [ ]
                 [ text "Your session has expired. You need to "
                 , loginTrigger r csrf
                 , text " again."
                 ]
-            ]
-        None -> []
+            
+        None -> text ""

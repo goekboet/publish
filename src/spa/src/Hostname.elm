@@ -1,8 +1,8 @@
 module Hostname exposing(hostnameForm, HostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink )
 
 import Html exposing (..)
-import Html.Attributes exposing (for, type_, method, name, class, classList, disabled)
-import Html.Events exposing (onInput, onSubmit)
+import Html.Attributes exposing (for, type_, name, class, classList, disabled)
+import Html.Events exposing (onInput)
 import Model exposing (Msg(..), Hostname, encodeHostname, decodeHostname)
 import Http exposing (Error)
 import Url.Builder as UrlB
@@ -116,54 +116,41 @@ nameDescription = String.join " "
     , "When people browse for services this is what they scroll through."
     ]
 
-hostnameStyle : List (Attribute msg)
-hostnameStyle =
-    [ class "pt-b-05em"
-    , class "light-bkg"
-    , class "hostNameSubmission"
-    , class "main-txt-col" ]
-
-
-
 handleInputView : HostnameForm -> Html Msg
 handleInputView hf =
     let
-        markAsValid i e = 
+        pass i e = 
             if hasError i e 
-            then classList [ ("invalid", True) ] 
-            else classList [ ("valid", True) ] 
+            then classList [("pass", False)] 
+            else classList [("pass", True) ]  
     in
-        div [] 
+        div [ class "forminput" ] 
             [ label [ for "handle" ] [ text "handle:" ]
             , input [ type_ "text", name "handle", onInput HandleValueChanged ] [] 
-            , ul [] 
-                [ li [ markAsValid hf.handle BadLength ] [ text "The handle needs to be between 2 and 64 characters long." ]
-                , li [ markAsValid hf.handle InvalidChars ] [ text "Allowed characters in the handle are lower-case characters, digits, _ and -." ]
-                ]
+            , span [ pass hf.handle BadLength ] [ text "The handle needs to be between 2 and 64 characters long." ]
+            , span [ pass hf.handle InvalidChars ] [ text "Allowed characters in the handle are lower-case characters, digits, _ and -." ]
             ]
 
 nameInputView : HostnameForm -> Html Msg
 nameInputView hf =
     let
-        markAsValid i e = 
+        pass i e = 
             if hasError i e 
-            then classList [ ("invalid", True) ] 
-            else classList [ ("valid", True) ] 
+            then classList [("pass", False)] 
+            else classList [("pass", True) ] 
     in
-        div [] 
+        div [ class "forminput" ] 
         [ label [ for "name" ] [ text "name:" ]
-        , input [ type_ "name", name "name", onInput NameValueChanged ] [] 
-        , ul [] 
-            [ li [ markAsValid hf.name BadLength ] [ text "The name needs to be between 2 and 128 characters long." ]
-            ]
+        , input [ type_ "text", name "name", onInput NameValueChanged ] [] 
+        , span [ pass hf.name BadLength ] [ text "The name needs to be between 2 and 128 characters long." ]
         ]
 
 submitButton : HostnameForm -> Bool -> Html Msg
 submitButton hf submitting =
     case (submitting, isValidHostnameForm hf) of
-    (True, _) -> button [] [ text "Submitting" ]
-    (_, True) -> button [ Html.Events.onClick SubmitHost ] [ text "Submit" ]
-    (_, False) -> button [ disabled True ] [ text "Submit" ]
+    (True, _) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submitting" ]]
+    (_, True) -> div [class "formbuttons"] [button [ Html.Events.onClick SubmitHost ] [ text "Submit" ]]
+    (_, False) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submit" ]]
 
 errorView : Error -> Html Msg    
 errorView _ =
@@ -171,14 +158,14 @@ errorView _ =
 
 hostnameForm : HostnameForm -> Bool -> Html Msg
 hostnameForm hf submitting = Html.div 
-    hostnameStyle
-    [ h3 [ class "large-text" ] [ text "Submit a hostname"]
-    , p [ class "small-text" ] [ text hostDescription]
-    , h4 [ class "small-text" ] [ b [] [text "Handle"] ]
-    , p [ class "small-text", class "" ] [ text handleDescription ]
+    []
+    [ h2 [] [ text "Submit a hostname"]
+    , p [] [ text hostDescription]
+    , h3 [] [ b [] [text "Handle"] ]
+    , p [] [ text handleDescription ]
     , handleInputView hf
-    , h4 [ class "small-text" ] [ b [] [text "Name"] ]
-    , p [ class "small-text" ] [ text nameDescription ]
+    , h3 [] [ b [] [text "Name"] ]
+    , p [] [ text nameDescription ]
     , nameInputView hf
     , Maybe.map errorView hf.failed |> Maybe.withDefault (text "")
     , submitButton hf submitting
@@ -217,7 +204,7 @@ publishUrl h = UrlB.relative [ "publisher", h.handle ] []
 
 addTimesLink : Hostname -> Html Msg
 addTimesLink h =
-    a [ class "addTimesLink" 
+    a [ class "navlink" 
       , Html.Attributes.href (publishUrl h)] 
       [ h3 [] [ text "Publish times" ]
       , addTimesText h ]
