@@ -126,16 +126,12 @@ body {
   input[type=checkbox] {
     zoom: 1.5;
   }
-  
-  input:focus, button:focus, a:focus {
-    outline-color: darkcyan;
-  }
-  
+
   .rememberme {
     display: flex;
     align-items: center;
   }
-  
+
   .root-view {
     background-color: gainsboro;
     height: 100vh;
@@ -167,25 +163,16 @@ body {
   .content {
     padding: 1em;
   }
-  
-  .heavy {
-    background-color: darkcyan;
-    color: lightcyan;
-    border-color: darkcyan;
-  }
-  
-  .light {
-    background-color: lightcyan;
-    color: darkcyan;
-    border-color: darkcyan;
-  }
 
-.navlink {
-  display: block;
-  border: solid;
-  border-width: thin;
-  padding: 1em;
-  border-radius: 8px;
+  .navlink {
+    display: block;
+    border-top: solid;
+    border-width: thin;
+    padding: 1em;
+}
+
+.navlink:last-child {
+    padding-bottom: 0;
 }
 
 a.navlink:hover {

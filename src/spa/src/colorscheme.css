@@ -1,0 +1,15 @@
+input:focus, button:focus, a:focus {
+    outline-color: darkcyan;
+  }
+
+  .heavy {
+    background-color: darkcyan;
+    color: lightcyan;
+    border-color: darkcyan;
+  }
+  
+  .light {
+    background-color: lightcyan;
+    color: darkcyan;
+    border-color: darkcyan;
+  }
