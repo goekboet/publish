@@ -169,6 +169,18 @@ homelink =
           ]
         ]
 
+bookingsLink : Model -> Html Msg
+bookingsLink m =
+    case m.sessionState of
+      Fresh _ -> 
+        a [ class "navlink" 
+          , Html.Attributes.href "/bookings" 
+          ] 
+          [ h3 [] [ text "My bookings" ]
+          , p [] [ text "When you publish times and some user books it, it shows up here." ] 
+          ]
+      _ -> text ""
+
 routeToView : Model -> List (Html Msg)
 routeToView m =
     case m.route of
@@ -183,8 +195,31 @@ routeToView m =
             ( List.concat 
                 [ signinLink m.route m.antiCsrf m.sessionState
                 , [ sessionstateView m.route m.antiCsrf m.sessionState ]
-                , [ renderHostnameForm m]] )
+                , [ bookingsLink m ]
+                , [ renderHostnameForm m]
+                ]
+            )
             ]
+        
+        BookingsRoute -> 
+          [ homelink
+            , div 
+              [ class "content"
+              , class "light" 
+              ] 
+              [ h2 [] [ text "My bookings"] 
+              ]
+          ]
+
+        PublishRoute _ -> 
+          [ homelink
+            , div 
+              [ class "content"
+              , class "light" 
+              ] 
+              [ h2 [] [ text "Publish"] 
+              ]
+          ]
 
 view : Model -> Browser.Document Msg
 view model =

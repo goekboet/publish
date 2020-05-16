@@ -198,7 +198,7 @@ addTimesText h =
         , text "." ]
 
 publishUrl : Hostname -> String
-publishUrl h = UrlB.relative [ "publisher", h.handle ] []
+publishUrl h = UrlB.relative [ "publish", h.handle ] []
 
 
 
