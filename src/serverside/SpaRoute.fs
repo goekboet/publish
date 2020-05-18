@@ -24,7 +24,8 @@ let layout
             title []  [ str "Publish" ];
             link [ _rel "stylesheet" ; _href "/colorscheme.css" ];
             link [ _rel "stylesheet" ; _href "/common.css" ];
-            script [ _src "/main.js"; ] []; 
+            script [ _src "/main.js"; ] [];
+            script [ _src "/dates.js" ] []; 
             script 
                 (_id "app"
                 :: _type "module"

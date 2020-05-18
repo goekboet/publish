@@ -1,10 +1,8 @@
 module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, signinLink)
 
-import Html exposing (Html, Attribute, p, i, input, text, b, button, a, div, h3, h2)
+import Html exposing (Html, p, input, text, button, h2)
 import Route exposing (Route, logoutUrl, loginUrl)
 import Html.Attributes exposing (class, action, method, type_, name, value)
-import Html.Events exposing (onClick)
-import Model exposing (Msg(..))
 
 type SessionState
     = Fresh String
@@ -28,7 +26,7 @@ isSignedIn s =
         _ ->
             False
 
-formLink : String -> String -> String -> Html Msg
+formLink : String -> String -> String -> Html msg
 formLink csrf url label =
     Html.form
         [ action url
@@ -47,14 +45,14 @@ formLink csrf url label =
             []
         ]
 
-logoutTrigger : Route -> String -> Html Msg
+logoutTrigger : Route -> String -> Html msg
 logoutTrigger route csrf =
     formLink csrf (logoutUrl route) "Logout"
-loginTrigger : Route -> String -> Html Msg
+loginTrigger : Route -> String -> Html msg
 loginTrigger route csrf =
     formLink csrf (loginUrl route) "Login"
 
-signinLink : Route -> String -> SessionState -> List (Html Msg)
+signinLink : Route -> String -> SessionState -> List (Html msg)
 signinLink r csrf ss =
     case ss of
         None -> [ h2 [] [ text "Login required" ]
@@ -72,7 +70,7 @@ signinLink r csrf ss =
             
     
 
-sessionstateView : Route -> String -> SessionState -> Html Msg
+sessionstateView : Route -> String -> SessionState -> Html msg
 sessionstateView r csrf s =
     case s of
         Fresh name ->

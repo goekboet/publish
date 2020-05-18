@@ -1,11 +1,30 @@
-module Hostname exposing(hostnameForm, HostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink )
+module Hostname exposing(Hostname, hostnameForm, HostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink )
 
 import Html exposing (..)
+import Json.Encode as Encode exposing (Value)
+import Json.Decode as Decode exposing (Decoder)
 import Html.Attributes exposing (for, type_, name, class, classList, disabled)
 import Html.Events exposing (onInput)
-import Model exposing (Msg(..), Hostname, encodeHostname, decodeHostname)
 import Http exposing (Error)
 import Url.Builder as UrlB
+
+type alias Hostname =
+    { name : String
+    , handle : String
+    }
+
+encodeHostname : Hostname -> Value
+encodeHostname h =
+    Encode.object 
+        [ ("name", Encode.string h.name )
+        , ("handle", Encode.string h.handle )
+        ]
+
+decodeHostname : Decoder Hostname
+decodeHostname =
+    Decode.map2 Hostname
+        (Decode.field "name" Decode.string)
+        (Decode.field "handle" Decode.string)
 
 type alias HandleValue = String
 type alias NameValue = String
@@ -116,8 +135,8 @@ nameDescription = String.join " "
     , "When people browse for services this is what they scroll through."
     ]
 
-handleInputView : HostnameForm -> Html Msg
-handleInputView hf =
+handleInputView : (String -> msg) -> HostnameForm -> Html msg
+handleInputView valuechanged hf =
     let
         pass i e = 
             if hasError i e 
@@ -126,13 +145,13 @@ handleInputView hf =
     in
         div [ class "forminput" ] 
             [ label [ for "handle" ] [ text "handle:" ]
-            , input [ type_ "text", name "handle", onInput HandleValueChanged ] [] 
+            , input [ type_ "text", name "handle", onInput valuechanged ] [] 
             , span [ pass hf.handle BadLength ] [ text "The handle needs to be between 2 and 64 characters long." ]
             , span [ pass hf.handle InvalidChars ] [ text "Allowed characters in the handle are lower-case characters, digits, _ and -." ]
             ]
 
-nameInputView : HostnameForm -> Html Msg
-nameInputView hf =
+nameInputView : (String -> msg) -> HostnameForm -> Html msg
+nameInputView valuechanged hf =
     let
         pass i e = 
             if hasError i e 
@@ -141,34 +160,34 @@ nameInputView hf =
     in
         div [ class "forminput" ] 
         [ label [ for "name" ] [ text "name:" ]
-        , input [ type_ "text", name "name", onInput NameValueChanged ] [] 
+        , input [ type_ "text", name "name", onInput valuechanged ] [] 
         , span [ pass hf.name BadLength ] [ text "The name needs to be between 2 and 128 characters long." ]
         ]
 
-submitButton : HostnameForm -> Bool -> Html Msg
-submitButton hf submitting =
+submitButton : msg -> HostnameForm -> Bool -> Html msg
+submitButton submit hf submitting =
     case (submitting, isValidHostnameForm hf) of
     (True, _) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submitting" ]]
-    (_, True) -> div [class "formbuttons"] [button [ Html.Events.onClick SubmitHost ] [ text "Submit" ]]
+    (_, True) -> div [class "formbuttons"] [button [ Html.Events.onClick submit ] [ text "Submit" ]]
     (_, False) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submit" ]]
 
-errorView : Error -> Html Msg    
+errorView : Error -> Html msg    
 errorView _ =
     p [ class "hostnameSubmissionFail" ] [ text "For some reason we could not register your submission. You're welcome to try again."]
 
-hostnameForm : HostnameForm -> Bool -> Html Msg
-hostnameForm hf submitting = Html.div 
-    []
+hostnameForm : (String -> msg) -> (String -> msg) -> msg -> HostnameForm -> Bool -> Html msg
+hostnameForm namechange handlechange submit hf submitting = Html.div 
+    [ class "navlink" ]
     [ h2 [] [ text "Submit a hostname"]
     , p [] [ text hostDescription]
     , h3 [] [ b [] [text "Handle"] ]
     , p [] [ text handleDescription ]
-    , handleInputView hf
+    , handleInputView handlechange hf
     , h3 [] [ b [] [text "Name"] ]
     , p [] [ text nameDescription ]
-    , nameInputView hf
+    , nameInputView namechange hf
     , Maybe.map errorView hf.failed |> Maybe.withDefault (text "")
-    , submitButton hf submitting
+    , submitButton submit hf submitting
     ]
 
 toHostname : HostnameForm -> Maybe Hostname
@@ -177,20 +196,20 @@ toHostname hf =
         (Input [] n, Input [] h) -> Just { name = n, handle = h}
         _ -> Nothing
 
-addHost : HostnameForm -> Cmd Msg
-addHost hf = 
+addHost : (Result Error Hostname -> msg) -> HostnameForm -> Cmd msg
+addHost response hf = 
     let
         req h = Http.post
             { url = UrlB.relative [ "api", "publisher" ] []
             , body = Http.jsonBody (encodeHostname h)
-            , expect = Http.expectJson HostAdded decodeHostname
+            , expect = Http.expectJson response decodeHostname
             }
     in
         toHostname hf
         |> Maybe.map req
         |> Maybe.withDefault Cmd.none
 
-addTimesText : Hostname -> Html Msg
+addTimesText : Hostname -> Html msg
 addTimesText h =
     p [] 
         [ text "Your publisher name is "
@@ -202,11 +221,11 @@ publishUrl h = UrlB.relative [ "publish", h.handle ] []
 
 
 
-addTimesLink : Hostname -> Html Msg
+addTimesLink : Hostname -> Html msg
 addTimesLink h =
     a [ class "navlink" 
       , Html.Attributes.href (publishUrl h)] 
-      [ h3 [] [ text "Publish times" ]
+      [ h2 [] [ text "Publish times" ]
       , addTimesText h ]
     
     

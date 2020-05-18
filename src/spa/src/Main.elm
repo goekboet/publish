@@ -1,15 +1,16 @@
 module Main exposing (main)
 
-import Browser
+import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Html exposing (..)
+import Http
 import Html.Attributes exposing (..)
-import Hostname exposing (HostnameForm, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
-import Url
-import Model exposing (Msg(..))
+import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
+import Url exposing (Url)
 import Route exposing (Route(..), toRoute)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
-
+import Weekpointer exposing (WeekPointer)
+import Json.Decode as Decode
 
 -- MAIN
 
@@ -37,17 +38,18 @@ type alias Flags =
   , username: Username
   , hostName: Maybe String
   , hostHandle: Maybe String
+  , weekpointer: WeekPointer
   }
 
 type HostnameSubmission =
   Unsubmitted HostnameForm
   | Submitting HostnameForm
   | FailedSubmit HostnameForm
-  | Submitted Model.Hostname
+  | Submitted Hostname
 
 initHostnameSubmission : Maybe String -> Maybe String -> HostnameSubmission
 initHostnameSubmission name handle =
-  Maybe.map2 Model.Hostname name handle
+  Maybe.map2 Hostname name handle
   |> Maybe.map Submitted
   |> Maybe.withDefault (Unsubmitted initHostnameForm)
   
@@ -58,6 +60,7 @@ type alias Model =
   , antiCsrf : AntiCsrfToken
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
+  , weekpointer: WeekPointer
   }
 
 
@@ -67,13 +70,24 @@ init flags url key =
     , route = toRoute url
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
-    , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle}
+    , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
+    , weekpointer = flags.weekpointer
+    }
   , Cmd.none 
   )
 
 
 
 -- UPDATE
+
+type Msg
+  = LinkClicked UrlRequest
+  | UrlChanged Url
+  | SubmitHost
+  | HostAdded (Result Http.Error Hostname)
+  | HandleValueChanged String
+  | NameValueChanged String
+  | GotWeekpointer (Result Decode.Error WeekPointer)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -117,8 +131,10 @@ update msg model =
         Unsubmitted hf -> ( { model
                             | hostnameSubmission = Submitting hf
                             } 
-                          , addHost hf)
+                          , addHost HostAdded hf)
         _              -> (model, Cmd.none)
+
+    GotWeekpointer _ -> ( model, Cmd.none )
 
 
 
@@ -138,9 +154,9 @@ renderHostnameForm : Model -> Html Msg
 renderHostnameForm m =
   case (m.sessionState, m.hostnameSubmission) of
     (None, _) -> text ""
-    (_, Unsubmitted hf) -> hostnameForm hf False
-    (_, Submitting hf) -> hostnameForm hf True
-    (_, FailedSubmit hf) -> hostnameForm hf False
+    (_, Unsubmitted hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
+    (_, Submitting hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf True
+    (_, FailedSubmit hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
     (_, Submitted h) -> addTimesLink h 
 
 notFoundText : Html Msg
@@ -154,7 +170,7 @@ notFoundView : Html Msg
 notFoundView =
     div [ class "notFoundView" 
       ] 
-      [ h3 [] [ text "Broken link" ]
+      [ h2 [] [ text "Broken link" ]
       , notFoundText ]
 
 homelink : Html msg
@@ -176,7 +192,7 @@ bookingsLink m =
         a [ class "navlink" 
           , Html.Attributes.href "/bookings" 
           ] 
-          [ h3 [] [ text "My bookings" ]
+          [ h2 [] [ text "My bookings" ]
           , p [] [ text "When you publish times and some user books it, it shows up here." ] 
           ]
       _ -> text ""

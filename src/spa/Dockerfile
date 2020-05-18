@@ -5,12 +5,12 @@ RUN curl -L -o elm.gz https://github.com/elm/compiler/releases/download/0.19.1/b
 RUN gunzip elm.gz
 RUN chmod +x elm
 RUN mv elm /usr/local/bin
-RUN npm install browserify@16.5.0 -g
-RUN npm install uglify-js@3.6.1 -g
+RUN npm install browserify@16.5.1 -g
+RUN npm install uglify-js@3.9.3 -g
 
 WORKDIR /home/spa
 # COPY package.json package-lock.json ./
-RUN npm install date-fns@2.4.1
+RUN npm install date-fns@2.13.0
 
 COPY . .
 RUN ./build.sh
