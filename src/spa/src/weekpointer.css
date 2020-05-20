@@ -1,0 +1,75 @@
+.weekpointer {
+    display: grid;
+    grid-template-columns: 3fr 1fr 1fr 3fr;
+    grid-template-areas: 
+        ". yearlabel weeklabel ."
+        "wp yearvalue weekvalue wn"
+        ". weekdaylabel weekdaylabel ."
+        "dp weekdayvalue weekdayvalue dn";
+}
+
+.weekpointer p {
+    padding: 0;
+}
+
+#yearlabel {
+    grid-area: yearlabel;
+}
+
+#weeklabel {
+    grid-area: weeklabel;
+}
+
+#wp {
+    grid-area: wp;
+}
+
+#wn {
+    grid-area: wn;
+}
+
+#yearvalue {
+    grid-area: yearvalue;
+}
+
+#weekvalue {
+    grid-area: weekvalue;
+}
+
+#weekdaylabel {
+    grid-area: weekdaylabel;
+    padding-top: 1em;
+}
+
+#dp {
+    grid-area: dp;
+}
+
+#weekdayvalue {
+    grid-area: weekdayvalue;
+}
+
+#dn {
+    grid-area: dn;
+}
+
+.label {
+    font-size: small;
+    justify-self: center;
+    align-self: end;
+}
+
+.value {
+    font-size: large;
+    justify-self: center;
+}
+
+.next {
+    justify-self: start;
+    font-size: large;
+}
+
+.prev {
+    justify-self: end;
+    font-size: large;
+}

@@ -9,7 +9,7 @@ import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm
 import Url exposing (Url)
 import Route exposing (Route(..), toRoute)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
-import Weekpointer exposing (WeekPointer)
+import Weekpointer exposing (WeekPointer, weekPointerView, gotWeekpointer, refreshStaleWeekpointer, decodeWeekpointer)
 import Json.Decode as Decode
 
 -- MAIN
@@ -60,7 +60,7 @@ type alias Model =
   , antiCsrf : AntiCsrfToken
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
-  , weekpointer: WeekPointer
+  , weekpointer: Maybe WeekPointer
   }
 
 
@@ -71,7 +71,7 @@ init flags url key =
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
-    , weekpointer = flags.weekpointer
+    , weekpointer = Just flags.weekpointer
     }
   , Cmd.none 
   )
@@ -101,9 +101,13 @@ update msg model =
           ( model, Nav.load href )
 
     UrlChanged url ->
-      ( { model | route = toRoute url }
-      , Cmd.none
-      )
+      let
+        nRoute = toRoute url
+      in
+        ( { model | route = nRoute }
+        , Maybe.map (refreshStaleWeekpointer nRoute) model.weekpointer
+          |> Maybe.withDefault Cmd.none
+        )
     
     HostAdded (Ok h) -> ({ model | hostnameSubmission = Submitted h }, Cmd.none) 
     HostAdded (Err e) -> 
@@ -134,7 +138,8 @@ update msg model =
                           , addHost HostAdded hf)
         _              -> (model, Cmd.none)
 
-    GotWeekpointer _ -> ( model, Cmd.none )
+    GotWeekpointer r -> ( { model | weekpointer = Result.toMaybe r }, Cmd.none )
+    
 
 
 
@@ -144,7 +149,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-  Sub.none
+  gotWeekpointer (GotWeekpointer << Decode.decodeValue decodeWeekpointer)
 
 
 
@@ -227,13 +232,14 @@ routeToView m =
               ]
           ]
 
-        PublishRoute _ -> 
+        PublishRoute _ _ -> 
           [ homelink
             , div 
               [ class "content"
               , class "light" 
               ] 
               [ h2 [] [ text "Publish"] 
+              , weekPointerView m.route m.weekpointer
               ]
           ]
 

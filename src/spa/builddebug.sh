@@ -1,6 +1,6 @@
 # /bin/bash
 
-rm ../serverside/wwwroot/*
+rm -r ../serverside/wwwroot/*
 elm make src/Main.elm --output ../serverside/wwwroot/main.js
 browserify src/dates.js -o ../serverside/wwwroot/dates.js
 

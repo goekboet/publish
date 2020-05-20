@@ -6,14 +6,17 @@ module Route exposing
     )
 
 import Url exposing (Url)
-import Url.Parser as UrlP exposing (Parser, (</>))
+import Url.Parser as UrlP exposing (Parser, (</>), (<?>))
+import Url.Parser.Query as Query
 import Url.Builder as UrlB
+
+type alias WeekParameter = String
 
 type Route
     = NotFound
     | HomeRoute
     | BookingsRoute
-    | PublishRoute String
+    | PublishRoute String (Maybe WeekParameter)
 
 
 toRoute : Url -> Route
@@ -26,7 +29,7 @@ route =
     UrlP.oneOf
         [ UrlP.map HomeRoute UrlP.top 
         , UrlP.map BookingsRoute (UrlP.s "bookings")
-        , UrlP.map PublishRoute (UrlP.s "publish" </> UrlP.string)]
+        , UrlP.map PublishRoute (UrlP.s "publish" </> UrlP.string <?> Query.string "week")]
 
 routeToUrl : Route -> String
 routeToUrl _ = "/"
