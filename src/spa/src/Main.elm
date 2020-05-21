@@ -9,7 +9,7 @@ import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm
 import Url exposing (Url)
 import Route exposing (Route(..), toRoute)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
-import Weekpointer exposing (WeekPointer, weekPointerView, gotWeekpointer, refreshStaleWeekpointer, decodeWeekpointer)
+import Weekpointer exposing (..)
 import Json.Decode as Decode
 
 -- MAIN
@@ -38,7 +38,6 @@ type alias Flags =
   , username: Username
   , hostName: Maybe String
   , hostHandle: Maybe String
-  , weekpointer: WeekPointer
   }
 
 type HostnameSubmission =
@@ -60,7 +59,7 @@ type alias Model =
   , antiCsrf : AntiCsrfToken
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
-  , weekpointer: Maybe WeekPointer
+  , weekpointer: Maybe Weekpointer
   }
 
 
@@ -71,7 +70,7 @@ init flags url key =
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
-    , weekpointer = Just flags.weekpointer
+    , weekpointer = Just initWeekpointer
     }
   , Cmd.none 
   )
@@ -87,7 +86,7 @@ type Msg
   | HostAdded (Result Http.Error Hostname)
   | HandleValueChanged String
   | NameValueChanged String
-  | GotWeekpointer (Result Decode.Error WeekPointer)
+  | DayfocusChanged String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -105,8 +104,7 @@ update msg model =
         nRoute = toRoute url
       in
         ( { model | route = nRoute }
-        , Maybe.map (refreshStaleWeekpointer nRoute) model.weekpointer
-          |> Maybe.withDefault Cmd.none
+        , Cmd.none
         )
     
     HostAdded (Ok h) -> ({ model | hostnameSubmission = Submitted h }, Cmd.none) 
@@ -138,8 +136,13 @@ update msg model =
                           , addHost HostAdded hf)
         _              -> (model, Cmd.none)
 
-    GotWeekpointer r -> ( { model | weekpointer = Result.toMaybe r }, Cmd.none )
-    
+    DayfocusChanged d ->
+      let
+          wp old = { old | day = d}
+      in
+        ( { model | weekpointer = Maybe.map wp model.weekpointer }
+        , Cmd.none
+        )
 
 
 
@@ -149,7 +152,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-  gotWeekpointer (GotWeekpointer << Decode.decodeValue decodeWeekpointer)
+  Sub.none
 
 
 
@@ -239,7 +242,8 @@ routeToView m =
               , class "light" 
               ] 
               [ h2 [] [ text "Publish"] 
-              , weekPointerView m.route m.weekpointer
+              , Maybe.map (weekpointerView DayfocusChanged) m.weekpointer
+                |> Maybe.withDefault (text "")
               ]
           ]
 

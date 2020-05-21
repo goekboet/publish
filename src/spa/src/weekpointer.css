@@ -1,75 +1,27 @@
-.weekpointer {
-    display: grid;
-    grid-template-columns: 3fr 1fr 1fr 3fr;
-    grid-template-areas: 
-        ". yearlabel weeklabel ."
-        "wp yearvalue weekvalue wn"
-        ". weekdaylabel weekdaylabel ."
-        "dp weekdayvalue weekdayvalue dn";
+.weekstepper {
+    display: flex;
+    padding-bottom: 1em;
+    align-items: baseline;
 }
 
-.weekpointer p {
-    padding: 0;
+.daystepper {
+    display: flex;
+    justify-content: space-between;
 }
 
-#yearlabel {
-    grid-area: yearlabel;
+.daystepper button {
+    margin: 0;
+    flex-grow: 1;
+    border: none;
+    border-right: solid;
+    border-width: thin;
+    border-radius: 0;
 }
 
-#weeklabel {
-    grid-area: weeklabel;
-}
-
-#wp {
-    grid-area: wp;
-}
-
-#wn {
-    grid-area: wn;
-}
-
-#yearvalue {
-    grid-area: yearvalue;
-}
-
-#weekvalue {
-    grid-area: weekvalue;
-}
-
-#weekdaylabel {
-    grid-area: weekdaylabel;
-    padding-top: 1em;
-}
-
-#dp {
-    grid-area: dp;
-}
-
-#weekdayvalue {
-    grid-area: weekdayvalue;
-}
-
-#dn {
-    grid-area: dn;
-}
-
-.label {
-    font-size: small;
-    justify-self: center;
-    align-self: end;
-}
-
-.value {
-    font-size: large;
-    justify-self: center;
-}
-
-.next {
-    justify-self: start;
-    font-size: large;
-}
-
-.prev {
-    justify-self: end;
-    font-size: large;
+.daystepper button:last-child {
+    margin: 0;
+    flex-grow: 1;
+    border: none;
+    border-right: none;
+    border-radius: 0;
 }
