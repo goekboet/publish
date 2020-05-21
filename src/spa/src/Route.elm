@@ -17,6 +17,7 @@ type Route
     | HomeRoute
     | BookingsRoute
     | PublishRoute String (Maybe WeekParameter)
+    | Appointment String
 
 
 toRoute : Url -> Route
@@ -29,7 +30,8 @@ route =
     UrlP.oneOf
         [ UrlP.map HomeRoute UrlP.top 
         , UrlP.map BookingsRoute (UrlP.s "bookings")
-        , UrlP.map PublishRoute (UrlP.s "publish" </> UrlP.string <?> Query.string "week")]
+        , UrlP.map PublishRoute (UrlP.s "publish" </> UrlP.string <?> Query.string "week")
+        , UrlP.map Appointment (UrlP.s "appointment" </> UrlP.string) ]
 
 routeToUrl : Route -> String
 routeToUrl _ = "/"

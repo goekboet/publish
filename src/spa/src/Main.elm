@@ -10,7 +10,8 @@ import Url exposing (Url)
 import Route exposing (Route(..), toRoute)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
 import Weekpointer exposing (..)
-import Json.Decode as Decode
+import Times exposing (addTimeView, publishedTimesView, mockedTimes)
+import Bookings exposing (bookingsView, mockedbookings)
 
 -- MAIN
 
@@ -232,6 +233,10 @@ routeToView m =
               , class "light" 
               ] 
               [ h2 [] [ text "My bookings"] 
+              , p [] [ text "Any times booked by someone will show up here."]
+              , Maybe.map (weekpointerView DayfocusChanged) m.weekpointer
+                |> Maybe.withDefault (text "") 
+              , bookingsView mockedbookings
               ]
           ]
 
@@ -241,9 +246,25 @@ routeToView m =
               [ class "content"
               , class "light" 
               ] 
-              [ h2 [] [ text "Publish"] 
+              [ h2 [] [ text "Publish"]
+              , h3 [] [ text "Publish a time"]
+              , addTimeView 
+              , h3 [] [ text "Published times"]
               , Maybe.map (weekpointerView DayfocusChanged) m.weekpointer
                 |> Maybe.withDefault (text "")
+              , publishedTimesView mockedTimes
+              ]
+          ]
+
+        Route.Appointment _ ->
+          [ homelink
+            , div 
+              [ class "content"
+              , class "light" 
+              ] 
+              [ h2 [] [ text "Appointment" ]
+              , p [] [ text "Somename has booked a time at 10:00" ]
+              , button [] [ text "Go to meeting" ]
               ]
           ]
 

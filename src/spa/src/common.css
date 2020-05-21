@@ -110,7 +110,7 @@ body {
       opacity: 50%;
   }
   
-  input[type=text], input[type=password], input[type=email] {
+  input[type=text], input[type=password], input[type=email], input[type=number], input[type=time] {
     height: 2em;
     border-radius: 5px;
     border-style: solid;

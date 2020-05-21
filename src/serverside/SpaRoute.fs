@@ -25,6 +25,7 @@ let layout
             link [ _rel "stylesheet" ; _href "/colorscheme.css" ];
             link [ _rel "stylesheet" ; _href "/common.css" ];
             link [ _rel "stylesheet" ; _href "/weekpointer.css" ]
+            link [ _rel "stylesheet" ; _href "/times.css" ]
             script [ _src "/main.js"; ] [];
             script [ _src "/dates.js" ] []; 
             script 

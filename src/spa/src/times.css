@@ -1,0 +1,29 @@
+.addTime {
+    display:flex;
+    align-items: baseline;
+    padding-bottom: 1em;
+}
+
+.addTime > p {
+    padding: 0;
+    margin: 0 1em 0 1em;
+}
+
+.addTime > p:first-child {
+    margin: 0 1em 0 0;
+}
+
+.addTime > input[type=number] {
+    width:4em;
+}
+
+.publishedTimes > li {
+    margin: 1em 0 1em 0;
+    display: flex;
+    align-items: baseline;
+}
+
+.publishedTimes > li > a {
+    padding:0.5em;
+    margin: 0 0 0 1em;
+}
