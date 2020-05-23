@@ -1,6 +1,9 @@
-module Bookings exposing (bookingsView, mockedbookings)
+module Bookings exposing 
+    (bookingsView
+    , mockedbookings
+    )
 
-import Html exposing (Html, h3, ul, li, text, a)
+import Html exposing (Html, ul, li, text, a)
 import Html.Attributes exposing (href)
 import Url.Builder exposing (absolute)
 

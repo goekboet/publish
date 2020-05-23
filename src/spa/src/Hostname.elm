@@ -1,4 +1,14 @@
-module Hostname exposing(Hostname, hostnameForm, HostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink )
+module Hostname exposing
+    ( Hostname
+    , hostnameForm
+    , HostnameForm
+    , initHostnameForm
+    , setHandleValue
+    , setNameValue
+    , setError
+    , addHost
+    , addTimesLink 
+    )
 
 import Html exposing (..)
 import Json.Encode as Encode exposing (Value)

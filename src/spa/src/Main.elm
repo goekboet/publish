@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
@@ -7,11 +7,16 @@ import Http
 import Html.Attributes exposing (..)
 import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
 import Url exposing (Url)
-import Route exposing (Route(..), toRoute)
+import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
-import Weekpointer exposing (..)
+import Weekpointer exposing (Weekpointer, weekpointerView)
 import Times exposing (addTimeView, publishedTimesView, mockedTimes)
 import Bookings exposing (bookingsView, mockedbookings)
+
+port nextWeekpointer : (Maybe String) -> Cmd a
+port currWeekpointer : (Maybe String) -> Cmd a
+port prevWeekpointer : (Maybe String) -> Cmd a
+port gotWeekpointer : ((String, Weekpointer) -> msg) -> Sub msg
 
 -- MAIN
 
@@ -39,6 +44,7 @@ type alias Flags =
   , username: Username
   , hostName: Maybe String
   , hostHandle: Maybe String
+  , weekpointer: (String, Weekpointer)
   }
 
 type HostnameSubmission =
@@ -60,9 +66,8 @@ type alias Model =
   , antiCsrf : AntiCsrfToken
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
-  , weekpointer: Maybe Weekpointer
+  , weekpointer: Weekpointer
   }
-
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
@@ -71,9 +76,9 @@ init flags url key =
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
-    , weekpointer = Just initWeekpointer
+    , weekpointer = Tuple.second flags.weekpointer
     }
-  , Cmd.none 
+  , Nav.pushUrl key (addWptr (toRoute url) (Tuple.first flags.weekpointer)) 
   )
 
 
@@ -88,6 +93,10 @@ type Msg
   | HandleValueChanged String
   | NameValueChanged String
   | DayfocusChanged String
+  | PrevWeekpointer
+  | CurrWeekpointer
+  | NextWeekpointer
+  | GotWeekpointer (String, Weekpointer)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -138,12 +147,14 @@ update msg model =
         _              -> (model, Cmd.none)
 
     DayfocusChanged d ->
-      let
-          wp old = { old | day = d}
-      in
-        ( { model | weekpointer = Maybe.map wp model.weekpointer }
-        , Cmd.none
-        )
+      ( model, currWeekpointer (setWptrDay model.route d))
+    
+    PrevWeekpointer -> (model, prevWeekpointer (getWptr model.route))
+    CurrWeekpointer -> (model, currWeekpointer Nothing)
+    NextWeekpointer -> (model, nextWeekpointer (getWptr model.route))
+    GotWeekpointer wptr -> 
+      ( { model | weekpointer = Tuple.second wptr }
+      , Nav.pushUrl model.key (addWptr model.route (Tuple.first wptr)))
 
 
 
@@ -153,7 +164,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-  Sub.none
+  gotWeekpointer GotWeekpointer
 
 
 
@@ -214,7 +225,7 @@ routeToView m =
             , div [ class "content", class "light" ] [notFoundView] 
             ]
 
-        HomeRoute ->
+        HomeRoute _ ->
             [ homelink
             , div [ class "content", class "light" ] 
             ( List.concat 
@@ -226,7 +237,7 @@ routeToView m =
             )
             ]
         
-        BookingsRoute -> 
+        BookingsRoute _ -> 
           [ homelink
             , div 
               [ class "content"
@@ -234,8 +245,7 @@ routeToView m =
               ] 
               [ h2 [] [ text "My bookings"] 
               , p [] [ text "Any times booked by someone will show up here."]
-              , Maybe.map (weekpointerView DayfocusChanged) m.weekpointer
-                |> Maybe.withDefault (text "") 
+              , weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
               , bookingsView mockedbookings
               ]
           ]
@@ -250,13 +260,12 @@ routeToView m =
               , h3 [] [ text "Publish a time"]
               , addTimeView 
               , h3 [] [ text "Published times"]
-              , Maybe.map (weekpointerView DayfocusChanged) m.weekpointer
-                |> Maybe.withDefault (text "")
+              , weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
               , publishedTimesView mockedTimes
               ]
           ]
 
-        Route.Appointment _ ->
+        Route.Appointment _ _ ->
           [ homelink
             , div 
               [ class "content"

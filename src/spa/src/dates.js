@@ -7,14 +7,28 @@ var getISOWeekYear = require('date-fns/getISOWeekYear')
 var getISOWeek = require('date-fns/getISOWeek')
 var format = require('date-fns/format')
 var fromUnixTime = require('date-fns/fromUnixTime')
+var getDay = require('date-fns/getDay')
+var setDay = require('date-fns/setDay')
+
+var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ]
+var toIndex = function (d) { 
+    var i = days.indexOf(d);
+    if (i === -1) {
+        return 0;
+    }
+
+    return i;
+
+}
 
 function parseweek(s) {
     var tokens = s === null ? [] : s.split('-');
     // console.log(tokens);
-    if (tokens.length == 2) {
+    if (tokens.length == 3) {
         var y = parseInt(tokens[0], 10);
         var w = parseInt(tokens[1], 10);
-
+        var d = tokens[2];
+        
         if (isNaN(y) || isNaN(w))
         {
             // console.log("failed to parse year: " + y + " week " + w)
@@ -27,7 +41,12 @@ function parseweek(s) {
             return null;
         }
 
-        return [y, w];
+        if (days.indexOf(d) == -1)
+        {
+            return null;
+        }
+
+        return { year: y, week: w, day: d };
     }
     else {
         return null;
@@ -45,46 +64,28 @@ function toWeek(d) {
     return y.toString().concat('-', zeroPad2w(w));
 }
 
-window.initWeekpointer = function initWeekpointer() {
-    var urlParams = new URLSearchParams(window.location.search);
-    var week = urlParams.get('week');
+window.getWeekpointer = function getWeekpointer(query, offset) {
 
-    return getWeekpointer(week);
-}
-
-window.getWeekpointer = function getWeekpointer(week) {
-
-    var prev = null;
-    var curr = null;
-    var next = null;
-    var query = parseweek(week);
-    
-    if (query !== null) {
-        prev = new setISOWeek(new Date(query[0], 0, 1), query[1] - 1);
-        curr = new setISOWeek(new Date(query[0], 0, 1), query[1]);
-        next = new setISOWeek(new Date(query[0], 0, 1), query[1] + 1);
+    var d = new Date();
+    var wpt = parseweek(query);
+    if (wpt !== null) {
+        var year = new Date(wpt.year,0);
+        var week = setISOWeek(year, wpt.week + offset);
+        
+        d = setDay(week, toIndex(wpt.day));
     }
     else {
-        var now = new Date();
-        var wn = getISOWeek(now);
-        
-        prev = new setISOWeek(now, wn - 1);
-        curr = now;
-        next = new setISOWeek(now, wn + 1);
+        d = new Date();
     }
     
-    // console.log("prev: " + prev);
-    // console.log("curr: " + curr);
-    // console.log("next: " + next);
-
-    return {
-        prev: toWeek(prev),
-        curr: toWeek(curr),
-        next: toWeek(next),
-        window: [ getUnixTime(startOfISOWeek(curr)) * 1000,
-                  getUnixTime(endOfISOWeek(curr) * 1000)]
-
-    }
+    return [ 
+        format(d, 'yyyy-II-iii'), 
+        {
+            name: format(d, "iii, MMM dd, 'w.'II yyyy"),
+            day: format(d, 'iii'),
+            window: [ getUnixTime(startOfISOWeek(d)) * 1000,
+                      getUnixTime(endOfISOWeek(d) * 1000)]
+        }]
 }
 
 function oclock(t) {
