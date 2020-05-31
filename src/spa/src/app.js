@@ -23,3 +23,17 @@ app.ports.currWeekpointer.subscribe(v => {
 app.ports.prevWeekpointer.subscribe(v => {
     app.ports.gotWeekpointer.send(getWeekpointer(v, -1));
 })
+
+app.ports.idTimeSubmission.subscribe(t => {
+    console.log(t);
+    var id = identifyTime(t[0], t[1]);
+    console.log(id);
+    app.ports.timeSubmissionId.send(id);
+})
+
+app.ports.formatTimeListing.subscribe(ts => {
+    //console.log(ts);
+    var ft = mapToTimes(ts);
+    //console.log(ft);
+    app.ports.timelistingFormatted.send(ft);
+})

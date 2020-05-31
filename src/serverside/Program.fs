@@ -28,8 +28,9 @@ open System.Net.Http
 open IdentityModel.Client
 open Microsoft.Extensions.Options
 open System.Security.Claims
-open Publisher.Api
+open Publish.Api
 open Publish.RefreshToken
+open Utf8Json
 
 
 // ---------------------------------
@@ -54,62 +55,7 @@ let authScheme
     options.DefaultChallengeScheme <- oidcScheme;
     ()
 
-let refreshTokensIfStale 
-    (ctx : CookieValidatePrincipalContext) =
-    task {
-        let now = ctx.HttpContext.GetService<ISystemClock>().UtcNow
-        let httpClientFactory = ctx.HttpContext.GetService<IHttpClientFactory>()
-        let oidcOpts = 
-            ctx.HttpContext.GetService<IOptionsSnapshot<OpenIdConnectOptions>>().Get(oidcScheme)
-        let idsClient = httpClientFactory.CreateClient("IdsClient")
-        let logger = ctx.HttpContext.GetService<Microsoft.Extensions.Logging.ILogger<CookieValidatePrincipalContext>>()
-        let tokens = ctx.Properties.GetTokens() |> List.ofSeq
-        
-        match getAccesstokenFreshness tokens now with
-            | Fresh t ->
-                logger.LogDebug("AccessToken considered fresh for {timespan}.", t) 
-                Task.CompletedTask |> ignore
-            | Stale refreshToken -> 
-                match! useRefreshToken idsClient oidcOpts refreshToken now with
-                | Ok freshTokens -> 
-                    logger.LogDebug("Accesstoken stale. Using refreshtoken.")
-                    ctx.Properties.StoreTokens(freshTokens)
-                    ctx.ShouldRenew <- true
-                | Error msg -> 
-                    logger.LogError("Failed to refresh tokens {errordescription}", msg)
-                    ctx.RejectPrincipal()
-            | Unavailiable -> 
-                logger.LogError("Unable to retrieve tokens from cookie-properties.")
-                ctx.RejectPrincipal()
-    } :> Task
 
-
-
-let revokeTokensInCookieProperties
-    (ctx : CookieSigningOutContext)
-    =
-    task {
-        let! signInStatus = ctx.HttpContext.AuthenticateAsync()
-        let httpClientFactory = ctx.HttpContext.GetService<IHttpClientFactory>()
-        let logger = ctx.HttpContext.GetService<Microsoft.Extensions.Logging.ILogger<CookieValidatePrincipalContext>>()
-        if signInStatus.None
-        then return! Task.CompletedTask
-        else 
-            let tokens = signInStatus.Properties.GetTokens() |> List.ofSeq
-            let refreshtoken = getRefreshtoken tokens
-            let http = httpClientFactory.CreateClient("IdsClient")
-            let oidcOpts = 
-                ctx.HttpContext.GetService<IOptionsSnapshot<OpenIdConnectOptions>>().Get(oidcScheme)
-            let! r = Option.map (requestRefreshtokenRevokation http oidcOpts) refreshtoken
-                    |> Option.defaultValue (Task.FromResult (Ok ()))
-            
-            match r with
-                | Error msg -> 
-                    logger.LogError ("Failed to revoke refreshtoken: {error}", msg)
-                    return! Task.CompletedTask
-                | _ -> 
-                    return! Task.CompletedTask
-    } :> Task
     
 
 let cookieAuth (o : CookieAuthenticationOptions) =
@@ -139,7 +85,7 @@ let loginHandler : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         task {
             let returnUrl = 
-                ctx.TryGetQueryStringValue "returnurl"
+                ctx.TryGetQueryStringValue "sparoute"
                 |> Option.defaultValue "/"
 
             if ctx.User.Identity.IsAuthenticated
@@ -154,17 +100,14 @@ let loginHandler : HttpHandler =
 let logoutHandler : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         let returnUrl = 
-                ctx.TryGetQueryStringValue "returnurl"
+                ctx.TryGetQueryStringValue "sparoute"
                 |> Option.defaultValue "/"
         
         if ctx.User.Identity.IsAuthenticated
         then (signOut cookieScheme >=> signOut oidcScheme) next ctx
         else redirectTo false returnUrl next ctx
 
-let toClaims (h : Publishername) = 
-    [ Claim ("broker.host.name", h.name)
-    ; Claim ("broker.host.handle", h.handle) 
-    ]
+
 
 let fromClaims (principal : ClaimsPrincipal)
     =
@@ -176,29 +119,7 @@ let fromClaims (principal : ClaimsPrincipal)
         name 
         handle
 
-let addPublisher : HttpHandler =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        task {
-            let httpFactory = ctx.GetService<IHttpClientFactory>()
-            
-            let client = httpFactory.CreateClient("BrokerClient")
-            let! tkn = ctx.GetTokenAsync("access_token")
-            client.SetBearerToken tkn
 
-            let! payload = ctx.BindJsonAsync<Publishername>()
-            let! publisher = registerPublisherName client payload
-
-            let! auth = ctx.AuthenticateAsync()
-            let user = auth.Principal
-            let props = auth.Properties
-            let claims = toClaims publisher
-            let brokerPublisher = ClaimsIdentity claims
-            user.AddIdentity brokerPublisher
-            
-            do! ctx.SignInAsync(user, props) 
-
-            return! Successful.OK publisher next ctx
-        }
 
 let parsingErrorHandler err = RequestErrors.BAD_REQUEST err
 
@@ -217,13 +138,18 @@ let withAntiforgery (form : string -> string option -> Publishername option -> X
 
 let webApp =
     choose [
-        GET >=> withAntiforgery layout 
+        GET >=> 
+            choose [
+                route "/api/times"       >=> mustBeLoggedIn >=> requiresRegisteredPublisher >=> listTimes;
+                withAntiforgery layout
+            ] 
             
         POST >=>
             choose [
-                route "/api/publisher"   >=> addPublisher; 
-                route "/login"          >=> antiForgeryValidate >=> loginHandler;
-                route "/logout"         >=> antiForgeryValidate >=> logoutHandler
+                route "/api/publisher"   >=> mustBeLoggedIn >=> addPublisher; 
+                route "/api/times"       >=> mustBeLoggedIn >=> requiresRegisteredPublisher >=> addTime;
+                route "/login"           >=> antiForgeryValidate >=> loginHandler;
+                route "/logout"          >=> antiForgeryValidate >=> logoutHandler
             ]
         RequestErrors.notFound (text "Not Found") ]
 

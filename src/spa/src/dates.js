@@ -9,6 +9,11 @@ var format = require('date-fns/format')
 var fromUnixTime = require('date-fns/fromUnixTime')
 var getDay = require('date-fns/getDay')
 var setDay = require('date-fns/setDay')
+var setHours = require('date-fns/setHours')
+var setMinutes = require('date-fns/setMinutes')
+var startOfMinute = require('date-fns/startOfMinute')
+var addMinutes = require('date-fns/addMinutes')
+var getUnixTime = require('date-fns/getUnixTime')
 
 var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ]
 var toIndex = function (d) { 
@@ -64,15 +69,51 @@ function toWeek(d) {
     return y.toString().concat('-', zeroPad2w(w));
 }
 
-window.getWeekpointer = function getWeekpointer(query, offset) {
+function parseTime(t) {
+    var hhmm = t.split(':');
+    var h = parseInt(hhmm[0], 10);
+    var m = parseInt(hhmm[1], 10);
 
+    return { h: h === null ? 0 : h, m: m === null ? 0 : m }
+}
+
+window.identifyTime = function (query, t) {
+    var d = new Date();
+    var wpt = parseweek(query);
+    if (wpt !== null) {
+        var year = new Date(wpt.year,0);
+        var week = setISOWeek(year, wpt.week);
+        
+        d = setDay(week, toIndex(wpt.day));
+    }
+    else {
+        d = new Date();
+    }
+
+    var hhmm = parseTime(t.start);
+    var hh = setHours(d, hhmm.h);
+    var mm = setMinutes(hh, hhmm.m)
+    var start = startOfMinute(mm);
+    var end = addMinutes(start, t.dur);
+    t.name = 
+        format(start, "iii, MMM dd, 'w.'II yyyy") 
+        + " " 
+        + format(start, 'HH:mm')
+        + " - "
+        + format(end, 'HH:mm');
+    t.id = getUnixTime(start);
+    t.day = format(d, 'iii');
+
+    return t;
+}
+
+window.getWeekpointer = function getWeekpointer(query, offset) {
     var d = new Date();
     var wpt = parseweek(query);
     if (wpt !== null) {
         var year = new Date(wpt.year,0);
         var week = setISOWeek(year, wpt.week + offset);
-        
-        d = setDay(week, toIndex(wpt.day));
+        d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
     }
     else {
         d = new Date();
@@ -83,25 +124,24 @@ window.getWeekpointer = function getWeekpointer(query, offset) {
         {
             name: format(d, "iii, MMM dd, 'w.'II yyyy"),
             day: format(d, 'iii'),
-            window: [ getUnixTime(startOfISOWeek(d)) * 1000,
-                      getUnixTime(endOfISOWeek(d) * 1000)]
+            window: [ getUnixTime(startOfISOWeek(d)),
+                      getUnixTime(endOfISOWeek(d))]
         }]
 }
 
-function oclock(t) {
-    return format(fromUnixTime(t), 'PPpp');
-
+function toTime(t) {
+    var d = new Date(parseInt(t.start) * 1000);
+    
+    return {
+        id: t.start,
+        start: format(d, 'HH:mm'),
+        day: format(d, 'iii'),
+        end: parseInt(t.end),
+        name: t.name,
+        status: t.booked ? "Booked" : "Published"
+    }
 }
 
-window.printOclock = function printOclock(appts)
-{
-     return appts.map(function f(a) {
-        return {
-            hostId: a.hostId,
-            name: a.name,
-            start: a.start,
-            oclock: oclock(a.start / 1000),
-            dur: a.dur
-        };
-     })
+window.mapToTimes = function (ts) {
+    return ts.map(toTime);
 }

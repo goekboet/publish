@@ -8,7 +8,11 @@ open FSharp.Control.Tasks.V2.ContextInsensitive
 open System.Globalization
 open IdentityModel.Client
 open System.Threading
-
+open Microsoft.AspNetCore.Authentication.Cookies
+open Giraffe
+open Microsoft.Extensions.Options
+open System.Threading.Tasks
+open Microsoft.Extensions.Logging
 
 type AccessTokenFreshness =
     Fresh of TimeSpan
@@ -81,3 +85,60 @@ let requestRefreshtokenRevokation
         then return Error r.Error
         else return Ok ()
     }
+
+let refreshTokensIfStale 
+    (ctx : CookieValidatePrincipalContext) =
+    task {
+        let now = ctx.HttpContext.GetService<ISystemClock>().UtcNow
+        let httpClientFactory = ctx.HttpContext.GetService<IHttpClientFactory>()
+        let oidcOpts = 
+            ctx.HttpContext.GetService<IOptionsSnapshot<OpenIdConnectOptions>>().Get("Ids")
+        let idsClient = httpClientFactory.CreateClient("IdsClient")
+        let logger = ctx.HttpContext.GetService<Microsoft.Extensions.Logging.ILogger<CookieValidatePrincipalContext>>()
+        let tokens = ctx.Properties.GetTokens() |> List.ofSeq
+        
+        match getAccesstokenFreshness tokens now with
+            | Fresh t ->
+                logger.LogDebug("AccessToken considered fresh for {timespan}.", t) 
+                Task.CompletedTask |> ignore
+            | Stale refreshToken -> 
+                match! useRefreshToken idsClient oidcOpts refreshToken now with
+                | Ok freshTokens -> 
+                    logger.LogDebug("Accesstoken stale. Using refreshtoken.")
+                    ctx.Properties.StoreTokens(freshTokens)
+                    ctx.ShouldRenew <- true
+                | Error msg -> 
+                    logger.LogError("Failed to refresh tokens {errordescription}", msg)
+                    ctx.RejectPrincipal()
+            | Unavailiable -> 
+                logger.LogError("Unable to retrieve tokens from cookie-properties.")
+                ctx.RejectPrincipal()
+    } :> Task
+
+
+
+let revokeTokensInCookieProperties
+    (ctx : CookieSigningOutContext)
+    =
+    task {
+        let! signInStatus = ctx.HttpContext.AuthenticateAsync()
+        let httpClientFactory = ctx.HttpContext.GetService<IHttpClientFactory>()
+        let logger = ctx.HttpContext.GetService<Microsoft.Extensions.Logging.ILogger<CookieValidatePrincipalContext>>()
+        if signInStatus.None
+        then return! Task.CompletedTask
+        else 
+            let tokens = signInStatus.Properties.GetTokens() |> List.ofSeq
+            let refreshtoken = getRefreshtoken tokens
+            let http = httpClientFactory.CreateClient("IdsClient")
+            let oidcOpts = 
+                ctx.HttpContext.GetService<IOptionsSnapshot<OpenIdConnectOptions>>().Get("Ids")
+            let! r = Option.map (requestRefreshtokenRevokation http oidcOpts) refreshtoken
+                    |> Option.defaultValue (Task.FromResult (Ok ()))
+            
+            match r with
+                | Error msg -> 
+                    logger.LogError ("Failed to revoke refreshtoken: {error}", msg)
+                    return! Task.CompletedTask
+                | _ -> 
+                    return! Task.CompletedTask
+    } :> Task

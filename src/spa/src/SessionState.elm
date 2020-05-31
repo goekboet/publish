@@ -1,6 +1,6 @@
-module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, signinLink)
+module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, signinLink, staleSession)
 
-import Html exposing (Html, p, input, text, button, h2)
+import Html exposing (Html, p, input, text, button, h2, h3, i, div)
 import Route exposing (Route, logoutUrl, loginUrl)
 import Html.Attributes exposing (class, action, method, type_, name, value)
 
@@ -90,3 +90,19 @@ sessionstateView r csrf s =
                 ]
             
         None -> text ""
+
+staleSession : Route -> String -> Html msg
+staleSession r csrf =
+    div [ class "warning" ] 
+        [ h3 [] 
+            [ i [ class "fas", class "fa-exclamation-triangle" ] []
+            , text " Login expired"
+            ]
+        , p [] 
+            [ text "You need to "
+            , loginTrigger r csrf
+            , text " again."
+            ]
+        ]
+    
+    
