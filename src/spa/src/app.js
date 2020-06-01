@@ -26,7 +26,9 @@ app.ports.prevWeekpointer.subscribe(v => {
 
 app.ports.idTimeSubmission.subscribe(t => {
     console.log(t);
-    var id = identifyTime(t[0], t[1]);
+    const q = new URLSearchParams(window.location.search).get('wptr');
+    console.log(q);
+    var id = identifyTime(q, t);
     console.log(id);
     app.ports.timeSubmissionId.send(id);
 })

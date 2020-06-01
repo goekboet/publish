@@ -11,9 +11,9 @@ import Url exposing (Url)
 import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
 import Weekpointer exposing (Weekpointer, weekpointerView)
-import Times exposing (addTimeView, publishedTimesView, TimeSubmission, initTimeSubmission, setStart, setDur, setPause, nextTimeSubmission, TimePublish, submitTime, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
+import Times exposing (publishedTimesView, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
+import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
-import Json.Encode as Encode exposing (Value)
 import Json.Decode as Decode exposing (Decoder)
 
 port nextWeekpointer : (Maybe String) -> Cmd a
@@ -21,8 +21,8 @@ port currWeekpointer : (Maybe String) -> Cmd a
 port prevWeekpointer : (Maybe String) -> Cmd a
 port gotWeekpointer : ((String, Weekpointer) -> msg) -> Sub msg
 
-port idTimeSubmission : (Maybe String, TimeSubmission) -> Cmd a
-port timeSubmissionId : (TimeSubmission -> msg) -> Sub msg
+
+
 
 port formatTimeListing : (List TimeListing) -> Cmd a
 port timelistingFormatted : (Value -> msg) -> Sub msg
@@ -76,7 +76,7 @@ type alias Model =
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
   , weekpointer: Weekpointer
-  , timeSubmission : TimeSubmission
+  , timeSubmission : TS.Model
   , timeListing : TimesListCall
   }
 
@@ -94,12 +94,12 @@ init flags url key =
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
     , weekpointer = Tuple.second flags.weekpointer
-    , timeSubmission = initTimeSubmission (Tuple.second flags.weekpointer).day
+    , timeSubmission = TS.init (Tuple.second flags.weekpointer).day
     , timeListing = initTimesCall
     }
   , Cmd.batch
     [ Nav.pushUrl key (addWptr (toRoute url) (Tuple.first flags.weekpointer))
-    , idTimeSubmission (getWptr (toRoute url), initTimeSubmission (Tuple.second flags.weekpointer).day)
+    , TS.idTimeSubmission (TS.init (Tuple.second flags.weekpointer).day)
     , loadTimelisting (toRoute url) (Tuple.second flags.weekpointer).window TimeListingReceived
     ] 
   )
@@ -120,12 +120,8 @@ type Msg
   | CurrWeekpointer
   | NextWeekpointer
   | GotWeekpointer (String, Weekpointer)
-  | StartChange String
-  | DurChange String
-  | PauseChange String
-  | SubmitTime
-  | TimeSubmissionIdentified TimeSubmission
-  | TimePublished Int (Result Http.Error TimePublish)
+  | TimesubmissionUpdate TS.Msg
+  | TimePublished Int (Result Http.Error TS.TimePublish)
   | TimeListingReceived (Result Http.Error (List TimeListing))
   | TimeListingFormatted (Result Decode.Error (List Time))
   | ReloadTimelisting
@@ -197,45 +193,42 @@ update msg model =
       ( { model | weekpointer = Tuple.second wptr }
       , Nav.pushUrl model.key (addWptr model.route (Tuple.first wptr)))
 
-    StartChange s ->
-      let
-          newSubmission = setStart model.timeSubmission s
-      in
-      ( { model | timeSubmission = newSubmission }
-      , idTimeSubmission (getWptr model.route, newSubmission)
-      )
+    
       
-    DurChange s -> 
-      ( { model | timeSubmission = setDur model.timeSubmission s }
-      , Cmd.none
-      )
-      
-    PauseChange s -> 
-      ( { model | timeSubmission = setPause model.timeSubmission s }
-      , Cmd.none
-      )
 
-    SubmitTime ->
+    TimesubmissionUpdate TS.SubmitTime ->
       let
-          newSubmission = nextTimeSubmission model.timeSubmission
+          newSubmission = TS.nextTimeSubmission model.timeSubmission
+          pending = 
+            case (model.timeSubmission.id, model.timeSubmission.name) of
+              (Just id, Just name) -> Just
+                { id = id
+                , start = model.timeSubmission.start
+                , day = model.timeSubmission.day
+                , name = name
+                , dur = model.timeSubmission.dur
+                }
+              _ -> Nothing
       in
       ( { model 
         | timeSubmission = newSubmission 
-        , timeListing = 
-          case Times.toTime model.timeSubmission of
-            Just t -> Times.updateTimeSubmission t model.timeListing
-            _ -> model.timeListing
+        , timeListing = Maybe.map
+          (\x -> Times.updateTimeSubmission (Times.pendingPublish x.id x.start x.day x.name x.dur) model.timeListing ) pending
+          |> Maybe.withDefault model.timeListing
         }
       , Cmd.batch
-        [ idTimeSubmission (getWptr model.route, newSubmission)
-        , Maybe.map (\x -> submitTime (TimePublished x) model.timeSubmission) model.timeSubmission.id |> Maybe.withDefault Cmd.none
+        [ TS.idTimeSubmission newSubmission
+        , Maybe.map
+          (\x -> TS.submitTime (TimePublished x.id) model.timeSubmission) pending
+          |> Maybe.withDefault Cmd.none
         ]
       )
 
-    TimeSubmissionIdentified t -> 
-      ( { model | timeSubmission = t }
-      , Cmd.none
-      )
+    TimesubmissionUpdate ts -> 
+      let
+          (m, cmd) = TS.update ts model.timeSubmission
+      in
+        ( { model | timeSubmission = m}, cmd )
 
     TimePublished _ (Ok t) ->
       let
@@ -291,7 +284,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
   Sub.batch
     [ gotWeekpointer GotWeekpointer
-    , timeSubmissionId TimeSubmissionIdentified
+    , TS.timeSubmissionId (TimesubmissionUpdate << TS.TimeSubmissionIdentified)
     , timelistingFormatted (TimeListingFormatted << Decode.decodeValue decodeTimes)
     ]
 
@@ -386,7 +379,7 @@ routeToView m =
               , class "light" 
               ] 
               [ h2 [] [ text "Publish a time"]
-              , addTimeView StartChange DurChange PauseChange SubmitTime m.timeSubmission
+              , TS.view TimesubmissionUpdate m.timeSubmission
               , h3 [ Html.Events.onClick ReloadTimelisting ] [ text "Published times"]
               , weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
               , case m.sessionState of
