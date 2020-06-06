@@ -1,7 +1,12 @@
 .weekstepper {
     display: flex;
-    padding-bottom: 1em;
+    padding: 1em 0 1em 0;
     align-items: baseline;
+}
+
+.weekstepper p {
+    flex-grow: 1;
+    padding:0;
 }
 
 .daystepper {

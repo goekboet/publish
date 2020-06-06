@@ -11,21 +11,18 @@ import Url exposing (Url)
 import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
 import SessionState exposing (SessionState(..), sessionstateView, signinLink)
 import Weekpointer exposing (Weekpointer, weekpointerView)
-import Times exposing (publishedTimesView, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
+-- import Times exposing (publishedTimesView, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
 import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
-import Json.Decode as Decode exposing (Decoder)
+import Json.Encode exposing (Value)
+import Json.Decode as Decode
+
 
 port nextWeekpointer : (Maybe String) -> Cmd a
 port currWeekpointer : (Maybe String) -> Cmd a
 port prevWeekpointer : (Maybe String) -> Cmd a
 port gotWeekpointer : ((String, Weekpointer) -> msg) -> Sub msg
 
-
-
-
-port formatTimeListing : (List TimeListing) -> Cmd a
-port timelistingFormatted : (Value -> msg) -> Sub msg
 
 -- MAIN
 
@@ -76,31 +73,28 @@ type alias Model =
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
   , weekpointer: Weekpointer
-  , timeSubmission : TS.Model
-  , timeListing : TimesListCall
+  , times : TS.Model
   }
-
-loadTimelisting : Route -> (Int, Int) -> (Result Http.Error (List TimeListing) -> msg) -> Cmd msg
-loadTimelisting r window response =
-  case r of
-    PublishRoute _ _ -> listTimes response window
-    _ -> Cmd.none
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
+  let
+      times = TS.init (Tuple.second flags.weekpointer).day 
+  in
   ( { key = key
     , route = toRoute url
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
     , weekpointer = Tuple.second flags.weekpointer
-    , timeSubmission = TS.init (Tuple.second flags.weekpointer).day
-    , timeListing = initTimesCall
+    , times = times
     }
   , Cmd.batch
     [ Nav.pushUrl key (addWptr (toRoute url) (Tuple.first flags.weekpointer))
-    , TS.idTimeSubmission (TS.init (Tuple.second flags.weekpointer).day)
-    , loadTimelisting (toRoute url) (Tuple.second flags.weekpointer).window TimeListingReceived
+    , TS.idTimeSubmission times.submission
+    , case toRoute url of
+        PublishRoute _ _ -> TS.listTimes TimesubmissionUpdate (Tuple.second flags.weekpointer).window
+        _ -> Cmd.none
     ] 
   )
 
@@ -121,16 +115,9 @@ type Msg
   | NextWeekpointer
   | GotWeekpointer (String, Weekpointer)
   | TimesubmissionUpdate TS.Msg
-  | TimePublished Int (Result Http.Error TS.TimePublish)
-  | TimeListingReceived (Result Http.Error (List TimeListing))
-  | TimeListingFormatted (Result Decode.Error (List Time))
-  | ReloadTimelisting
+  
 
-isAuthError : Http.Error -> Bool
-isAuthError e =
-  case e of
-    Http.BadStatus 401 -> True
-    _ -> False
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -148,7 +135,9 @@ update msg model =
         nRoute = toRoute url
       in
         ( { model | route = nRoute }
-        , Cmd.none
+        , case nRoute of
+          PublishRoute _ _ -> TS.idTimeSubmission model.times.submission
+          _ -> Cmd.none
         )
     
     HostAdded (Ok h) -> ({ model | hostnameSubmission = Submitted h }, Cmd.none) 
@@ -193,89 +182,20 @@ update msg model =
       ( { model | weekpointer = Tuple.second wptr }
       , Nav.pushUrl model.key (addWptr model.route (Tuple.first wptr)))
 
-    
-      
-
-    TimesubmissionUpdate TS.SubmitTime ->
-      let
-          newSubmission = TS.nextTimeSubmission model.timeSubmission
-          pending = 
-            case (model.timeSubmission.id, model.timeSubmission.name) of
-              (Just id, Just name) -> Just
-                { id = id
-                , start = model.timeSubmission.start
-                , day = model.timeSubmission.day
-                , name = name
-                , dur = model.timeSubmission.dur
-                }
-              _ -> Nothing
-      in
-      ( { model 
-        | timeSubmission = newSubmission 
-        , timeListing = Maybe.map
-          (\x -> Times.updateTimeSubmission (Times.pendingPublish x.id x.start x.day x.name x.dur) model.timeListing ) pending
-          |> Maybe.withDefault model.timeListing
-        }
-      , Cmd.batch
-        [ TS.idTimeSubmission newSubmission
-        , Maybe.map
-          (\x -> TS.submitTime (TimePublished x.id) model.timeSubmission) pending
-          |> Maybe.withDefault Cmd.none
-        ]
-      )
-
     TimesubmissionUpdate ts -> 
       let
-          (m, cmd) = TS.update ts model.timeSubmission
+          r = TS.update TimesubmissionUpdate model.weekpointer.window ts model.times
       in
-        ( { model | timeSubmission = m}, cmd )
+        case r of
+        Just (m, cmd) -> ( { model | times = m }, cmd )
+        Nothing -> 
+          ( { model | sessionState = Stale }
+          , Cmd.none
+          )
 
-    TimePublished _ (Ok t) ->
-      let
-          d = Debug.log "publish success: " t
-      in
-       
-      ( { model
-        | timeListing = Times.confirmPublish t.start model.timeListing
-        }
-      , Cmd.none)
+    
 
-    TimePublished id (Err e) -> 
-      let
-          d = Debug.log "publish error: " e
-      in
-      
-      ( { model 
-        | sessionState = if isAuthError e then Stale else model.sessionState
-        , timeListing = Times.errorPublish id model.timeListing}
-      , Cmd.none)
-
-    TimeListingReceived (Err e) -> 
-      ( { model | timeListing = faultyTimesCall model.timeListing
-                , sessionState = if isAuthError e then Stale else model.sessionState
-        }
-      , Cmd.none 
-      )
-
-    TimeListingReceived (Ok ts) -> 
-      ( model 
-      , formatTimeListing ts 
-      )
-
-    TimeListingFormatted (Ok ts) -> 
-      ( { model | timeListing = recieveTimesCall ts }
-      , Cmd.none
-      )
-
-    TimeListingFormatted (Err e) ->
-      ( { model | timeListing = faultyTimesCall model.timeListing }
-      , Cmd.none
-      )
-
-    ReloadTimelisting -> 
-      ( { model | timeListing = reloadTimesCall model.timeListing }
-      , loadTimelisting model.route model.weekpointer.window TimeListingReceived
-      )
+    
 
 -- SUBSCRIPTIONS
 
@@ -285,7 +205,7 @@ subscriptions _ =
   Sub.batch
     [ gotWeekpointer GotWeekpointer
     , TS.timeSubmissionId (TimesubmissionUpdate << TS.TimeSubmissionIdentified)
-    , timelistingFormatted (TimeListingFormatted << Decode.decodeValue decodeTimes)
+    , TS.timelistingFormatted (TimesubmissionUpdate << TS.TimeListingFormatted << Decode.decodeValue TS.decodeTimes)
     ]
 
 
@@ -378,12 +298,11 @@ routeToView m =
               [ class "content"
               , class "light" 
               ] 
-              [ h2 [] [ text "Publish a time"]
-              , TS.view TimesubmissionUpdate m.timeSubmission
-              , h3 [ Html.Events.onClick ReloadTimelisting ] [ text "Published times"]
-              , weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+              [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+              , h3 [ Html.Events.onClick (TimesubmissionUpdate TS.ReloadTimelisting) ] [ text "Publish a time"]
+              , TS.view TimesubmissionUpdate m.times.submission
               , case m.sessionState of
-                  Fresh _ -> publishedTimesView ReloadTimelisting m.weekpointer.day m.timeListing
+                  Fresh _ -> TS.publishedTimesView TimesubmissionUpdate m.weekpointer.day m.times.listing
                   _ -> SessionState.staleSession m.route m.antiCsrf
               ]
           ]
