@@ -17,17 +17,6 @@
     width:4em;
 }
 
-.publishedTimes > li {
-    margin: 1em 0 1em 0;
-    display: flex;
-    align-items: baseline;
-}
-
-.publishedTimes > li > a {
-    padding:0.5em;
-    margin: 0 0 0 1em;
-}
-
 .warning {
     padding: 1em 0 1em 0;
     display: flex;
@@ -72,6 +61,48 @@
     to { -webkit-transform: rotate(360deg); }
   }
 
+  .timelisting > li {
+    display: flex;
+    align-items: baseline;
+    padding-bottom: 0.5em;
+  }
+
+  .timelisting > li > i {
+    padding-right: 1em;
+  }
+
+  .timelisting > li > p {
+    flex-grow: 1;
+    padding:0;
+  }
+
+  .timelisting > li > button {
+    padding: 0.25em;
+    margin-left: 0.5em;
+  }
+
+  .timelisting > li > a {
+    margin: 0;
+    padding: 0.25em;
+    font-weight: normal;
+    border: none;
+  }
+
   .submissionPending {
     opacity: 0.5;
+  }
+
+  .loadfailed {
+    border: solid thin;
+    margin-bottom: 1em;
+    border-radius: 5px;
+    padding-bottom: 1em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .loadfailed > i {
+    font-size: 2em;
+    padding: 0.5em;
   }

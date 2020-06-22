@@ -14,6 +14,7 @@ var setMinutes = require('date-fns/setMinutes')
 var startOfMinute = require('date-fns/startOfMinute')
 var addMinutes = require('date-fns/addMinutes')
 var getUnixTime = require('date-fns/getUnixTime')
+var add = require('date-fns/add')
 
 var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ]
 var toIndex = function (d) { 
@@ -83,8 +84,7 @@ window.identifyTime = function (query, t) {
     if (wpt !== null) {
         var year = new Date(wpt.year,0);
         var week = setISOWeek(year, wpt.week);
-        
-        d = setDay(week, toIndex(wpt.day));
+        d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
     }
     else {
         d = new Date();
@@ -94,7 +94,8 @@ window.identifyTime = function (query, t) {
     var hh = setHours(d, hhmm.h);
     var mm = setMinutes(hh, hhmm.m)
     var start = startOfMinute(mm);
-    var end = addMinutes(start, t.dur);
+    var end = addMinutes(start, t.durMinutes);
+ 
     t.name = 
         format(start, "iii, MMM dd, 'w.'II yyyy") 
         + " " 
@@ -131,13 +132,14 @@ window.getWeekpointer = function getWeekpointer(query, offset) {
 
 function toTime(t) {
     var d = new Date(parseInt(t.start) * 1000);
+    var end = new Date(parseInt(t.end) * 1000);
     
     return {
         id: t.start,
         start: format(d, 'HH:mm'),
         day: format(d, 'iii'),
         end: parseInt(t.end),
-        name: t.name,
+        name: format(d, 'HH:mm') + ' - ' + format(end, 'HH:mm'),
         status: t.booked ? "Booked" : "Published"
     }
 }

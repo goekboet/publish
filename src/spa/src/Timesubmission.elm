@@ -1,5 +1,6 @@
 port module Timesubmission exposing 
     ( Model
+    , setDay
     , idTimeSubmission
     , timeSubmissionId
     , timelistingFormatted
@@ -9,10 +10,10 @@ port module Timesubmission exposing
     , view
     , listTimes
     , decodeTimes
-    , publishedTimesView)
+    )
 
 import Html exposing (Html, span, p, input, button, text, li, ul, a, div, h3, i)
-import Html.Attributes as Attr exposing (class, type_, min, max, value, step, id )
+import Html.Attributes as Attr exposing (class, type_, min, max, value, step, id, href )
 import Html.Events exposing (onInput, onClick)
 import Http exposing (Error)
 import Url.Builder exposing (absolute)
@@ -33,18 +34,21 @@ type alias Model =
 type alias Submission =
   { start: String
   , day: String
-  , dur: Int
+  , durMinutes: Int
   , pause: Int
   , id: Maybe Int
   , name: Maybe String
-  , conflicts : List String
   }
 
-submittable : Submission -> Bool
-submittable s =
-  case s.id of
-    Just _ -> List.length s.conflicts == 0
-    _ -> False
+setDay : String -> Model -> Model
+setDay day { submission, listing } =
+  let
+      newSubmission = { submission | day = day }
+  in
+    { submission = newSubmission
+    , listing = listing
+    }
+    
 
 type TimeSubmissionStatus =
   SubmissionPending
@@ -112,7 +116,7 @@ type Listing
 init : String -> Model
 init d = 
     let
-        submission = { start = "08:00", day = d, dur = 45, pause = 15, id = Nothing, name = Nothing, conflicts = [] }
+        submission = { start = "08:00", day = d, durMinutes = 45, pause = 15, id = Nothing, name = Nothing }
     in
         { submission = submission
         , listing = Pending []
@@ -124,7 +128,7 @@ setStart : Submission -> String -> Submission
 setStart ts start = { ts | start = start }
 
 setDur : Submission -> String -> Submission
-setDur ts dur = Maybe.map (\x -> { ts | dur = x }) (String.toInt dur) |> Maybe.withDefault ts
+setDur ts dur = Maybe.map (\x -> { ts | durMinutes = x }) (String.toInt dur) |> Maybe.withDefault ts
 
 setPause : Submission -> String -> Submission
 setPause ts pause = Maybe.map (\x -> { ts | pause = x }) (String.toInt pause) |> Maybe.withDefault ts
@@ -163,7 +167,7 @@ nextTimeSubmission : Submission -> Submission
 nextTimeSubmission t = 
   let
       next = 
-        toMinutes t.start + t.dur + t.pause
+        toMinutes t.start + t.durMinutes + t.pause
         |> fromMinutes
   in
     { t | start = next, id = Nothing, name = Nothing }
@@ -186,7 +190,7 @@ toTimePayload start name end =
   Encode.object
     [ ("Start", Encode.int start)
     , ("Name", Encode.string name)
-    , ("End", Encode.int end)
+    , ("End", Encode.int end) 
     ]
 
 submitTime : (Result Error TimePublish -> msg) -> Submission -> Cmd msg
@@ -195,10 +199,22 @@ submitTime response submission =
       (Just id, Just name) ->
         Http.post
           { url = absolute [ "api", "times"] []
-          , body = Http.jsonBody (toTimePayload id name (id + submission.dur))
+          , body = Http.jsonBody (toTimePayload id name (id + (submission.durMinutes * 60)))
           , expect = Http.expectJson response fromTimePayload
           }
       _ -> Cmd.none
+
+unpublishTime : Int -> (Result Error () -> msg) -> Cmd msg
+unpublishTime id toAppMsg =
+  Http.request
+    { method = "DELETE"
+    , headers = []
+    , url = absolute [ "api", "times", String.fromInt id] []
+    , body = Http.emptyBody
+    , expect = Http.expectWhatever toAppMsg 
+    , timeout = Nothing
+    , tracker = Nothing
+    }
 
 updateTimeSubmission : Time -> Listing -> Listing
 updateTimeSubmission t c =
@@ -224,6 +240,13 @@ mapTimesCall fn c =
     Received ts -> List.map fn ts |> Received
     Faulty ts -> List.map fn ts |> Faulty
 
+deleteTime : Int -> Listing -> Listing
+deleteTime id l =
+  case l of
+    Pending ts -> List.filter (\x -> x.id /= id) ts |> Pending
+    Received ts -> List.filter (\x -> x.id /= id) ts |> Received
+    Faulty ts -> List.filter (\x -> x.id /= id) ts |> Faulty
+
 updateTimePublish : Int -> TimeSubmissionStatus -> Time -> Time
 updateTimePublish id s t =
   if id == t.id
@@ -237,6 +260,10 @@ errorPublish t c =
 confirmPublish : Int -> Listing -> Listing
 confirmPublish t c =
   mapTimesCall (updateTimePublish t Published) c 
+
+setPending : Int -> Listing -> Listing
+setPending t c =
+  mapTimesCall (updateTimePublish t SubmissionPending) c 
 
 isAuthError : Http.Error -> Bool
 isAuthError e =
@@ -281,16 +308,7 @@ type alias TimeListing =
   , booked : Bool
   }
 
-recordConflicts : List TimeListing -> Submission -> Submission
-recordConflicts ts s =
-  let
-      conflicts start end = 
-        List.filter (\x -> start <= x.end && end >= x.start) ts
-        |> List.map .name
-  in
-    case s.id of
-      Just start -> { s | conflicts = conflicts start (start + s.dur) }
-      _ -> s 
+
 
 decodeTimeListing : Decoder TimeListing
 decodeTimeListing = 
@@ -310,6 +328,9 @@ type Msg
     | TimeListingReceived (Result Http.Error (List TimeListing))
     | TimeListingFormatted (Result Decode.Error (List Time))
     | ReloadTimelisting
+    | ErrorDismissed Int
+    | Unpublish Int
+    | Unpublished Int (Result Http.Error ())
 
 update : (Msg -> msg) -> (Int, Int) -> Msg -> Model -> Maybe (Model, Cmd msg)
 update toAppMsg window msg model =
@@ -352,7 +373,7 @@ update toAppMsg window msg model =
                         , start = model.submission.start
                         , day = model.submission.day
                         , name = name
-                        , dur = model.submission.dur
+                        , dur = model.submission.durMinutes
                         }
                       _ -> Nothing
             in
@@ -397,11 +418,8 @@ update toAppMsg window msg model =
             )
 
         TimeListingReceived (Ok ts) -> 
-          let
-            s = recordConflicts ts model.submission    
-          in
           Just
-          ( { model | submission = s } 
+          ( model 
           , formatTimeListing ts 
           )
 
@@ -423,59 +441,153 @@ update toAppMsg window msg model =
           , listTimes toAppMsg window 
           )
 
-view : (Msg -> msg) -> Submission -> Html msg
-view wrap t =
-    div [] 
-      (span [ class "addTime"] 
-        [ p [] [ text "start"]
-        , input [ type_ "time", onInput (wrap << StartChange), value t.start ] []
-        , p [] [ text "duration" ]
-        , input [ type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt t.dur), onInput (wrap << DurChange), step "5" ] []
-        , p [] [ text "pause" ]
-        , input [type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt t.pause), onInput (wrap << PauseChange), step "5" ] []
-        , button [ onClick (wrap SubmitTime), Attr.disabled (submittable t |> not) ] [ text "publish"]
-        ] :: List.map (\x -> span [] [ text ("conflicts with " ++ x)]) t.conflicts)
+        ErrorDismissed id ->
+          Just
+          ( { model | listing = deleteTime id model.listing }
+          , listTimes toAppMsg window ) 
 
-timeView : Time -> Html msg
-timeView t =
+        Unpublish id ->
+          Just 
+            ( { model | listing = setPending id model.listing }
+            , unpublishTime id (toAppMsg << Unpublished id) )
+
+        Unpublished id (Ok _)->
+          Just
+          ( { model | listing = deleteTime id model.listing }
+          , Cmd.none ) 
+
+        Unpublished id (Err e)->
+          if isAuthError e
+          then Nothing 
+          else Just
+            ( { model 
+              |  listing = errorPublish id model.listing 
+              }
+            , Cmd.none)
+
+getTimes : Listing -> List Time 
+getTimes l =
+  case l of
+      Pending ts -> ts
+      Received ts -> ts
+      Faulty ts -> ts
+  
+
+isConflict : Submission -> Time -> Bool
+isConflict s t = 
+  case s.id of
+    Just start -> start <= t.end && (start + s.durMinutes * 60) >= t.id
+    _ -> False 
+
+isError : Time -> Bool
+isError t =
   case t.status of
-    SubmissionPending -> li [ class "submissionPending" ] [ text t.name ]
-    SubmissionErrored -> li [] 
-      [ i [ class "fas", class "fa-exclamation-triangle" ] [] 
-      , text (" We failed to publish time: " ++ t.name) ]
-    Published -> li [] [ text t.name ]
-    Booked -> text ""
+    SubmissionErrored -> True
+    _ -> False
 
-publishedTimesView : (Msg -> msg) -> String -> Listing -> Html msg
-publishedTimesView toAppMsg day t =
+appointmentLink : Int -> Maybe String -> String
+appointmentLink id wptr =
   let
-      pending = li [] [ div [ id "loading" ] [] ]
+    wptrq = 
+      Maybe.map (\x -> [ Url.Builder.string "wptr" x ]) wptr
+      |> Maybe.withDefault []
 
-      todaysTimes d fn ts = 
-        List.sortBy .id ts 
-        |> List.filterMap
-        (\x -> if x.day == d then Just (fn x) else Nothing) 
-        
+  in
+  Url.Builder.absolute ["appointment", String.fromInt id ] wptrq
 
-      error = 
-        li [ id "timefetcherror" ] 
-          [ h3 [] 
-            [ i [ class "fas", class "fa-exclamation-triangle" ] []
-            , text " We failed to fetch your times"
-            ]
+timeView : (Msg -> msg) -> Maybe String -> Time -> Html msg
+timeView toAppMsg wptr t =
+  case t.status of
+    SubmissionPending -> 
+      li []
+          [ i [ class "far", class "fa-check-circle", class "submissionPending" ] []
+          , p [] [ text t.name ]
+          ]
+    SubmissionErrored -> 
+      li [] 
+          [ i [ class "fas", class "fa-exclamation-triangle" ] [] 
+          , p [] [ text t.name ]
+          , button 
+            [ class "heavy"
+            , onClick (ErrorDismissed t.id |> toAppMsg ) 
+            ] 
+            [ text "dismiss" ]
+          ]
+    Published -> 
+      li [] 
+          [ i [ class "fas", class "fa-check-circle" ] [] 
+          , p [] [ text t.name ] 
+          , button 
+            [ class "heavy"
+            , onClick (Unpublish t.id |> toAppMsg ) 
+            ] 
+            [ text "unpublish" ]
+          ]
+    Booked -> 
+      li []
+          [ i [ class "fas", class "fa-user-circle" ] []
+          , p [] [ text t.name ]
+          , a [ class "heavy", href (appointmentLink t.id wptr) ] [ text "go to booking" ]
+          ]
+
+listingStatus : (Msg -> msg) -> Listing -> Html msg
+listingStatus toAppmsg l =
+  case l of
+      Pending _ -> 
+        div [ id "loading" ] []
+      Received _ -> text ""
+      Faulty _ -> 
+        div [ class "loadfailed" ] 
+          [ i [ class "fas", class "fa-exclamation-triangle" ] []
           , p [ ] 
-            [ text "You can always " 
-            , a [ onClick (toAppMsg ReloadTimelisting) ] [ text "try again" ]
+            [ text "We failed to load your times. You can always " 
+            , a [ onClick (toAppmsg ReloadTimelisting) ] [ text "try again" ]
             , text "."
             ] 
           ]
+
+view : (Msg -> msg) -> Maybe String -> String -> Model -> Html msg
+view wrap wptr day { submission, listing } =
+  let
+    times = 
+      getTimes listing
+      |> List.filter (\x -> x.day == day)
+
+    conflicts = 
+      times
+      |> List.filter (isConflict submission)
+      |> List.sortBy .id
+
+    errors =
+      times
+      |> List.filter isError 
+      |> List.sortBy .id 
+
+    published =
+      times
+      |> List.filter (not << isError) 
+      |> List.sortBy .id
+
+    submittable = 
+      case submission.id of
+        Just _ -> List.length conflicts > 0
+        _ -> True  
   in
-  case t of
-    Pending ts -> 
-      ul [ class "publishedTimes" ] (pending :: todaysTimes day timeView ts)
-    Received ts -> 
-      ul [ class "publishedTimes" ] (todaysTimes day timeView ts)
-    Faulty ts -> 
-      ul [ class "publishedTimes" ] (error :: todaysTimes day timeView ts)
-            
-    
+    div [] 
+      [ span [ class "addTime"] 
+        [ p [] [ text "start"]
+        , input [ type_ "time", onInput (wrap << StartChange), value submission.start ] []
+        , p [] [ text "duration" ]
+        , input [ type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt submission.durMinutes), onInput (wrap << DurChange), step "5" ] []
+        , p [] [ text "pause" ]
+        , input [type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt submission.pause), onInput (wrap << PauseChange), step "5" ] []
+        , button [ onClick (wrap SubmitTime), Attr.disabled submittable ] [ text "publish"]
+        ]
+      , listingStatus wrap listing
+      , if List.length conflicts > 0 then h3 [] [ text "Conflicts" ] else text ""
+      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) conflicts)
+      , if List.length errors > 0 then h3 [] [ text "Errors" ] else text ""
+      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) errors)
+      , h3 [] [ text "Published" ]
+      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) published)
+      ]

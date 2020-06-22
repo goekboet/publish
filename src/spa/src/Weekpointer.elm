@@ -1,5 +1,6 @@
 module Weekpointer exposing 
     ( Weekpointer
+    , setDay
     , weekpointerView
     )
 
@@ -15,6 +16,9 @@ type alias Weekpointer =
     , day : String
     , window: Window
     }
+
+setDay : Weekpointer -> String -> Weekpointer
+setDay wp d = { wp | day = d } 
 
 weekpointerView : (String -> msg) -> msg -> msg -> msg -> Weekpointer -> Html msg
 weekpointerView changeday pw cw nw wp =

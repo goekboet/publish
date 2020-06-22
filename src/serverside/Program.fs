@@ -151,7 +151,13 @@ let webApp =
                 route "/login"           >=> antiForgeryValidate >=> loginHandler;
                 route "/logout"          >=> antiForgeryValidate >=> logoutHandler
             ]
-        RequestErrors.notFound (text "Not Found") ]
+
+        DELETE >=>
+            choose [
+                routef "/api/times/%i"   (fun x -> mustBeLoggedIn >=> unPublish x)
+            ]
+        RequestErrors.notFound (text "Not Found") 
+        ]
 
 
 

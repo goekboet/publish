@@ -203,3 +203,17 @@ let listTimes : HttpHandler
             else
                 return (Some ctx)
         }
+
+let unPublish (id : int) : HttpHandler
+    =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        task { 
+            let! client = getAuthorizedClient ctx
+            let publisher = getRegisteredPublisher ctx.User
+            let url = sprintf "/times/%s/%i" publisher id
+
+            let! r = client.DeleteAsync(url)
+            ctx.SetStatusCode (int r.StatusCode)
+            
+            return (Some ctx)
+        }

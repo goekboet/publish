@@ -80,21 +80,21 @@ init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
       times = TS.init (Tuple.second flags.weekpointer).day 
+      weekpointer = Tuple.second flags.weekpointer
   in
   ( { key = key
     , route = toRoute url
     , antiCsrf = flags.antiCsrf
     , sessionState = SessionState.init flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
-    , weekpointer = Tuple.second flags.weekpointer
+    , weekpointer = weekpointer
     , times = times
     }
   , Cmd.batch
     [ Nav.pushUrl key (addWptr (toRoute url) (Tuple.first flags.weekpointer))
-    , TS.idTimeSubmission times.submission
-    , case toRoute url of
-        PublishRoute _ _ -> TS.listTimes TimesubmissionUpdate (Tuple.second flags.weekpointer).window
-        _ -> Cmd.none
+    , case flags.hostHandle of
+      Just _ ->  TS.listTimes TimesubmissionUpdate weekpointer.window
+      _ -> Cmd.none 
     ] 
   )
 
@@ -170,7 +170,19 @@ update msg model =
         _              -> (model, Cmd.none)
 
     DayfocusChanged d ->
-      ( model, currWeekpointer (setWptrDay model.route d))
+      let
+          newTimes = TS.setDay d model.times
+          newWeekPointer = Weekpointer.setDay model.weekpointer d
+      in
+      
+      ( { model 
+        | times = newTimes
+        , weekpointer = newWeekPointer 
+        }
+      , Maybe.map 
+        (\x -> Nav.pushUrl model.key (addWptr model.route x)) (setWptrDay model.route d) 
+        |> Maybe.withDefault Cmd.none
+      ) 
     
     PrevWeekpointer -> (model, prevWeekpointer (getWptr model.route))
 
@@ -179,8 +191,19 @@ update msg model =
     NextWeekpointer -> (model, nextWeekpointer (getWptr model.route))
 
     GotWeekpointer wptr -> 
-      ( { model | weekpointer = Tuple.second wptr }
-      , Nav.pushUrl model.key (addWptr model.route (Tuple.first wptr)))
+      let
+          weekpointer = Tuple.second wptr
+          query = Tuple.first wptr
+      in
+      
+      ( { model | weekpointer = weekpointer }
+      , Cmd.batch 
+        [ Nav.pushUrl model.key (addWptr model.route query)
+        , case model.sessionState of
+          Fresh _ -> TS.listTimes TimesubmissionUpdate weekpointer.window
+          _ -> Cmd.none
+        ]
+      )
 
     TimesubmissionUpdate ts -> 
       let
@@ -292,19 +315,20 @@ routeToView m =
               ]
           ]
 
-        PublishRoute _ _ -> 
+        PublishRoute _ wptr -> 
           [ homelink
             , div 
               [ class "content"
               , class "light" 
-              ] 
-              [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-              , h3 [ Html.Events.onClick (TimesubmissionUpdate TS.ReloadTimelisting) ] [ text "Publish a time"]
-              , TS.view TimesubmissionUpdate m.times.submission
-              , case m.sessionState of
-                  Fresh _ -> TS.publishedTimesView TimesubmissionUpdate m.weekpointer.day m.times.listing
-                  _ -> SessionState.staleSession m.route m.antiCsrf
               ]
+              ( case m.sessionState of
+                Fresh _ ->
+                  [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+                  , h3 [ Html.Events.onClick (TimesubmissionUpdate TS.ReloadTimelisting) ] [ text "Publish a time"]
+                  , TS.view TimesubmissionUpdate wptr m.weekpointer.day m.times
+                  ]
+                _ -> 
+                  [ SessionState.staleSession m.route m.antiCsrf ])
           ]
 
         Route.Appointment _ _ ->

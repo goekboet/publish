@@ -3,7 +3,7 @@
 set -e
 DEST=${1:-dist}
 
-echo "Romoving old app."
+echo "Removing old app."
 [ -d $DEST ] && rm -r $DEST/*
 
 SECONDS=0
