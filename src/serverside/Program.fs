@@ -65,7 +65,7 @@ let cookieAuth (o : CookieAuthenticationOptions) =
         o.Cookie.Name         <- "auth"
         o.Cookie.SecurePolicy <- CookieSecurePolicy.SameAsRequest
         o.SlidingExpiration   <- true
-        o.ExpireTimeSpan      <- TimeSpan.FromDays 7.0
+        o.ExpireTimeSpan      <- TimeSpan.FromDays 2.0
         o.Events.OnValidatePrincipal <- Func<CookieValidatePrincipalContext, Task>(refreshTokensIfStale)
         o.Events.OnSigningOut <- Func<CookieSigningOutContext, Task>(revokeTokensInCookieProperties)
 
@@ -136,11 +136,19 @@ let withAntiforgery (form : string -> string option -> Publishername option -> X
 
         htmlView (form issue.RequestToken session hostName) next ctx
 
+let renewAntiforgery : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let af = ctx.GetService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
+        let issue = af.GetAndStoreTokens ctx 
+
+        text issue.RequestToken next ctx
+
 let webApp =
     choose [
         GET >=> 
             choose [
                 route "/api/times"       >=> mustBeLoggedIn >=> requiresRegisteredPublisher >=> listTimes;
+                route "/anticsrf"        >=> renewAntiforgery;
                 withAntiforgery layout
             ] 
             

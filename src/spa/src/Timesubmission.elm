@@ -530,12 +530,9 @@ timeView toAppMsg wptr t =
           , a [ class "heavy", href (appointmentLink t.id wptr) ] [ text "go to booking" ]
           ]
 
-listingStatus : (Msg -> msg) -> Listing -> Html msg
-listingStatus toAppmsg l =
+listingErrorMsg : (Msg -> msg) -> Listing -> Html msg
+listingErrorMsg toAppmsg l =
   case l of
-      Pending _ -> 
-        div [ id "loading" ] []
-      Received _ -> text ""
       Faulty _ -> 
         div [ class "loadfailed" ] 
           [ i [ class "fas", class "fa-exclamation-triangle" ] []
@@ -545,6 +542,7 @@ listingStatus toAppmsg l =
             , text "."
             ] 
           ]
+      _ -> text ""
 
 view : (Msg -> msg) -> Maybe String -> String -> Model -> Html msg
 view wrap wptr day { submission, listing } =
@@ -568,13 +566,28 @@ view wrap wptr day { submission, listing } =
       |> List.filter (not << isError) 
       |> List.sortBy .id
 
+    rolls l =
+      case l of
+        Pending _ -> True
+        _ -> False
+
     submittable = 
       case submission.id of
         Just _ -> List.length conflicts > 0
         _ -> True  
   in
     div [] 
-      [ span [ class "addTime"] 
+      [ i 
+        [ Html.Events.onClick (wrap ReloadTimelisting)
+        , Attr.classList 
+          [ ("fas", True) 
+          , ("fa-sync-alt", True)
+          , ("rolls", rolls listing)
+          ]
+        ] 
+        []
+      , h3 [] [ text "Publish a time" ]
+      , span [ class "addTime"] 
         [ p [] [ text "start"]
         , input [ type_ "time", onInput (wrap << StartChange), value submission.start ] []
         , p [] [ text "duration" ]
@@ -583,11 +596,11 @@ view wrap wptr day { submission, listing } =
         , input [type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt submission.pause), onInput (wrap << PauseChange), step "5" ] []
         , button [ onClick (wrap SubmitTime), Attr.disabled submittable ] [ text "publish"]
         ]
-      , listingStatus wrap listing
-      , if List.length conflicts > 0 then h3 [] [ text "Conflicts" ] else text ""
+      , listingErrorMsg wrap listing
+      , if List.length conflicts > 0 then h3 [] [ text "Conflicting times." ] else text ""
       , ul [ class "timelisting" ] (List.map (timeView wrap wptr) conflicts)
       , if List.length errors > 0 then h3 [] [ text "Errors" ] else text ""
       , ul [ class "timelisting" ] (List.map (timeView wrap wptr) errors)
-      , h3 [] [ text "Published" ]
+      , h3 [] [ text "Published times" ]
       , ul [ class "timelisting" ] (List.map (timeView wrap wptr) published)
       ]

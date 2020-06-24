@@ -1,61 +1,73 @@
-module SessionState exposing (SessionState(..), init, recordStaleness, isSignedIn, sessionstateView, signinLink, staleSession)
+module SessionState exposing (SessionState, isSignedIn, sessionstateView, signinLink, staleSession)
 
 import Html exposing (Html, p, input, text, button, h2, h3, i, div)
 import Route exposing (Route, logoutUrl, loginUrl)
-import Html.Attributes exposing (class, action, method, type_, name, value)
+import Html.Attributes exposing (class, action, method, type_, name, value, disabled)
 
-type SessionState
-    = Fresh String
-    | Stale
-    | None
+type alias SessionState
+    = Maybe String
 
-init : Maybe String -> SessionState
-init name = 
-    Maybe.map Fresh name
-    |> Maybe.withDefault None
+-- init : Maybe String -> SessionState
+-- init name = 
+--     Maybe.map Fresh name
+--     |> Maybe.withDefault None
 
-recordStaleness : SessionState
-recordStaleness = Stale
+-- recordStaleness : SessionState
+-- recordStaleness = Stale
 
 isSignedIn : SessionState -> Bool
 isSignedIn s =
     case s of
-        Fresh _ ->
+        Just _ ->
             True
 
         _ ->
             False
 
-formLink : String -> String -> String -> Html msg
+formLink : Maybe String -> String -> String -> Html msg
 formLink csrf url label =
-    Html.form
-        [ action url
-        , method "post"
-        , class "formlink"
-        ]
-        [ button
-            [ type_ "submit"
+    case csrf of
+    Just t -> 
+        Html.form
+            [ action url
+            , method "post"
+            , class "formlink"
             ]
-            [ text label ]
-        , input
-            [ type_ "hidden"
-            , name "__RequestVerificationToken"
-            , value csrf
+            [ button
+                [ type_ "submit"
+                ]
+                [ text label ]
+            , input
+                [ type_ "hidden"
+                , name "__RequestVerificationToken"
+                , value t
+                ]
+                []
             ]
-            []
-        ]
+    _ ->
+        Html.form
+            [ action url
+            , method "post"
+            , class "formlink"
+            ]
+            [ button
+                [ type_ "submit"
+                , disabled True
+                ]
+                [ text label ]
+            ]
 
-logoutTrigger : Route -> String -> Html msg
+logoutTrigger : Route -> Maybe String -> Html msg
 logoutTrigger route csrf =
     formLink csrf (logoutUrl route) "Logout"
-loginTrigger : Route -> String -> Html msg
+loginTrigger : Route -> (Maybe String) -> Html msg
 loginTrigger route csrf =
     formLink csrf (loginUrl route) "Login"
 
-signinLink : Route -> String -> SessionState -> List (Html msg)
+signinLink : Route -> (Maybe String) -> SessionState -> List (Html msg)
 signinLink r csrf ss =
     case ss of
-        None -> [ h2 [] [ text "Login required" ]
+        Nothing -> [ h2 [] [ text "Login required" ]
                 , p
                 []
                 [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
@@ -70,10 +82,10 @@ signinLink r csrf ss =
             
     
 
-sessionstateView : Route -> String -> SessionState -> Html msg
+sessionstateView : Route -> Maybe String -> SessionState -> Html msg
 sessionstateView r csrf s =
     case s of
-        Fresh name ->
+        Just name ->
             p []
               [ text ("You're logged in as " ++ name)
               , text ". "
@@ -81,7 +93,7 @@ sessionstateView r csrf s =
               ]
             
 
-        Stale ->
+        _ ->
             p
                 [ ]
                 [ text "Your session has expired. You need to "
@@ -89,9 +101,7 @@ sessionstateView r csrf s =
                 , text " again."
                 ]
             
-        None -> text ""
-
-staleSession : Route -> String -> Html msg
+staleSession : Route -> Maybe String -> Html msg
 staleSession r csrf =
     div [ class "warning" ] 
         [ h3 [] 

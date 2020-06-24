@@ -3,19 +3,20 @@ port module Main exposing (main)
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Html exposing (..)
-import Http
+import Http exposing (Error)
 import Html.Attributes exposing (..)
 import Html.Events
 import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
 import Url exposing (Url)
 import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
-import SessionState exposing (SessionState(..), sessionstateView, signinLink)
+import SessionState exposing (SessionState, sessionstateView, signinLink)
 import Weekpointer exposing (Weekpointer, weekpointerView)
 -- import Times exposing (publishedTimesView, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
 import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
 import Json.Encode exposing (Value)
 import Json.Decode as Decode
+import Url.Builder exposing (absolute)
 
 
 port nextWeekpointer : (Maybe String) -> Cmd a
@@ -69,7 +70,7 @@ initHostnameSubmission name handle =
 type alias Model =
   { key : Nav.Key
   , route : Route
-  , antiCsrf : AntiCsrfToken
+  , antiCsrf : Maybe AntiCsrfToken
   , sessionState : SessionState
   , hostnameSubmission : HostnameSubmission
   , weekpointer: Weekpointer
@@ -84,8 +85,8 @@ init flags url key =
   in
   ( { key = key
     , route = toRoute url
-    , antiCsrf = flags.antiCsrf
-    , sessionState = SessionState.init flags.username
+    , antiCsrf = Just flags.antiCsrf
+    , sessionState = flags.username
     , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
     , weekpointer = weekpointer
     , times = times
@@ -115,8 +116,15 @@ type Msg
   | NextWeekpointer
   | GotWeekpointer (String, Weekpointer)
   | TimesubmissionUpdate TS.Msg
+  | GotNewAnticsrf (Result Error String)
   
 
+getNewAntiscrf : Cmd Msg
+getNewAntiscrf = 
+  Http.get
+    { url = absolute [ "anticsrf" ] []
+    , expect = Http.expectString GotNewAnticsrf
+    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -179,9 +187,13 @@ update msg model =
         | times = newTimes
         , weekpointer = newWeekPointer 
         }
-      , Maybe.map 
-        (\x -> Nav.pushUrl model.key (addWptr model.route x)) (setWptrDay model.route d) 
-        |> Maybe.withDefault Cmd.none
+      , Cmd.batch 
+          [ Maybe.map 
+            (\x -> Nav.pushUrl model.key (addWptr model.route x)) (setWptrDay model.route d) 
+            |> Maybe.withDefault Cmd.none
+          , TS.idTimeSubmission newTimes.submission
+          ]
+      
       ) 
     
     PrevWeekpointer -> (model, prevWeekpointer (getWptr model.route))
@@ -200,7 +212,7 @@ update msg model =
       , Cmd.batch 
         [ Nav.pushUrl model.key (addWptr model.route query)
         , case model.sessionState of
-          Fresh _ -> TS.listTimes TimesubmissionUpdate weekpointer.window
+          Just _ -> TS.listTimes TimesubmissionUpdate weekpointer.window
           _ -> Cmd.none
         ]
       )
@@ -212,9 +224,15 @@ update msg model =
         case r of
         Just (m, cmd) -> ( { model | times = m }, cmd )
         Nothing -> 
-          ( { model | sessionState = Stale }
-          , Cmd.none
+          ( { model | sessionState = Nothing }
+          , getNewAntiscrf
           )
+
+    GotNewAnticsrf (Ok t) ->
+      ( { model | antiCsrf = Just t}, Cmd.none)
+
+    GotNewAnticsrf (Err e) ->
+      ( model, Cmd.none )
 
     
 
@@ -238,7 +256,7 @@ subscriptions _ =
 renderHostnameForm : Model -> Html Msg
 renderHostnameForm m =
   case (m.sessionState, m.hostnameSubmission) of
-    (None, _) -> text ""
+    (Nothing, _) -> text ""
     (_, Unsubmitted hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
     (_, Submitting hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf True
     (_, FailedSubmit hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
@@ -273,7 +291,7 @@ homelink =
 bookingsLink : Model -> Html Msg
 bookingsLink m =
     case m.sessionState of
-      Fresh _ -> 
+      Just _ -> 
         a [ class "navlink" 
           , Html.Attributes.href "/bookings" 
           ] 
@@ -321,10 +339,11 @@ routeToView m =
               [ class "content"
               , class "light" 
               ]
-              ( case m.sessionState of
-                Fresh _ ->
+              ( h2 [] [ text "Publish times."] 
+              :: p [] [ text "Each time you publish the form will reset to the next time leaving a specified pause. Any published time that has not been booked can be unpublished at any time. Any published time is browseable by the public."]
+              ::  case m.sessionState of
+                Just _ ->
                   [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-                  , h3 [ Html.Events.onClick (TimesubmissionUpdate TS.ReloadTimelisting) ] [ text "Publish a time"]
                   , TS.view TimesubmissionUpdate wptr m.weekpointer.day m.times
                   ]
                 _ -> 
