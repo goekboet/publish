@@ -6,8 +6,9 @@ import Html exposing (..)
 import Http exposing (Error)
 import Html.Attributes exposing (..)
 import Html.Events
-import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost, addTimesLink)
+import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost)
 import Url exposing (Url)
+import Url.Builder as UrlB
 import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
 import SessionState exposing (SessionState, sessionstateView, signinLink)
 import Weekpointer exposing (Weekpointer, weekpointerView)
@@ -253,6 +254,25 @@ subscriptions _ =
 
 -- VIEW
 
+addTimesText : Hostname -> Html msg
+addTimesText h =
+    p [] 
+        [ text "Your publisher name is "
+        , b [] [ text h.name ] 
+        , text "." ]
+
+publishUrl : Hostname -> (Maybe String) -> String
+publishUrl h wptr = 
+    UrlB.relative 
+        [ "publish", h.handle ]
+        (Maybe.map (\x -> [ UrlB.string "wptr" x ]) wptr |> Maybe.withDefault [])
+
+addTimesLink : Hostname -> (Maybe String) -> Html msg
+addTimesLink h wptr =
+    a [ Html.Attributes.href (publishUrl h wptr)] 
+      [ h2 [] [ text "Publish times" ]
+      , addTimesText h ]
+
 renderHostnameForm : Model -> Html Msg
 renderHostnameForm m =
   case (m.sessionState, m.hostnameSubmission) of
@@ -276,24 +296,13 @@ notFoundView =
       [ h2 [] [ text "Broken link" ]
       , notFoundText ]
 
-homelink : Html msg
-homelink =
-    div [ class "content"
-        , class "heavy" ] 
-        [ h1 [] 
-          [ a
-            [ href "/"
-            ]
-            [ text "Publish" ]
-          ]
-        ]
+
 
 bookingsLink : Model -> Html Msg
 bookingsLink m =
     case m.sessionState of
       Just _ -> 
-        a [ class "navlink" 
-          , Html.Attributes.href "/bookings" 
+        a [ Html.Attributes.href "/bookings" 
           ] 
           [ h2 [] [ text "My bookings" ]
           , p [] [ text "When you publish times and some user books it, it shows up here." ] 
@@ -304,16 +313,15 @@ routeToView : Model -> List (Html Msg)
 routeToView m =
     case m.route of
         NotFound ->
-            [ homelink
+            [ SessionState.homelink m.sessionState m.route m.antiCsrf 
             , div [ class "content", class "light" ] [notFoundView] 
             ]
 
         HomeRoute _ ->
-            [ homelink
-            , div [ class "content", class "light" ] 
+            [ SessionState.homelink m.sessionState m.route m.antiCsrf
+            , div [ class "content", class "light", class "homeLinklist" ] 
             ( List.concat 
                 [ signinLink m.route m.antiCsrf m.sessionState
-                , [ sessionstateView m.route m.antiCsrf m.sessionState ]
                 , [ bookingsLink m ]
                 , [ renderHostnameForm m]
                 ]
@@ -321,7 +329,7 @@ routeToView m =
             ]
         
         BookingsRoute _ -> 
-          [ homelink
+          [ SessionState.homelink m.sessionState m.route m.antiCsrf
             , div 
               [ class "content"
               , class "light" 
@@ -334,7 +342,7 @@ routeToView m =
           ]
 
         PublishRoute _ wptr -> 
-          [ homelink
+          [ SessionState.homelink m.sessionState m.route m.antiCsrf
             , div 
               [ class "content"
               , class "light" 
@@ -351,7 +359,7 @@ routeToView m =
           ]
 
         Route.Appointment _ _ ->
-          [ homelink
+          [ SessionState.homelink m.sessionState m.route m.antiCsrf
             , div 
               [ class "content"
               , class "light" 

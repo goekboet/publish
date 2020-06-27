@@ -25,8 +25,9 @@ let layout
             link [ _rel "stylesheet" ; _href "/colorscheme.css" ];
             link [ _rel "stylesheet" ; _href "/common.css" ];
             link [ _rel "stylesheet" ; _href "/weekpointer.css" ];
-            link [ _rel "stylesheet" ; _href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" ]
-            link [ _rel "stylesheet" ; _href "/times.css" ]
+            link [ _rel "stylesheet" ; _href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" ];
+            link [ _rel "stylesheet" ; _href "/times.css" ];
+            link [ _rel "stylesheet" ; _href "/home.css" ];
             script [ _src "/main.js"; ] [];
             script [ _src "/dates.js" ] []; 
             script 

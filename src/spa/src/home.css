@@ -1,0 +1,23 @@
+.home {
+    display: flex;
+    align-items: baseline;
+}
+
+.home > h1 {
+    flex-grow: 1;
+}
+
+.home > form > button > i {
+    font-size: 2em;
+}
+
+.homeLinklist > a {
+    display: inline-block;
+    font-weight: normal;
+    padding-bottom: 1em;
+    width: 100%;
+}
+
+.homeLinklist > a:last-child {
+    padding-bottom: 0;
+}

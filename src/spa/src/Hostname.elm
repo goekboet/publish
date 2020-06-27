@@ -7,7 +7,6 @@ module Hostname exposing
     , setNameValue
     , setError
     , addHost
-    , addTimesLink 
     )
 
 import Html exposing (..)
@@ -217,28 +216,4 @@ addHost response hf =
     in
         toHostname hf
         |> Maybe.map req
-        |> Maybe.withDefault Cmd.none
-
-addTimesText : Hostname -> Html msg
-addTimesText h =
-    p [] 
-        [ text "Your publisher name is "
-        , b [] [ text h.name ] 
-        , text "." ]
-
-publishUrl : Hostname -> (Maybe String) -> String
-publishUrl h wptr = 
-    UrlB.relative 
-        [ "publish", h.handle ]
-        (Maybe.map (\x -> [ UrlB.string "wptr" x ]) wptr |> Maybe.withDefault [])
-
-
-
-addTimesLink : Hostname -> (Maybe String) -> Html msg
-addTimesLink h wptr =
-    a [ class "navlink" 
-      , Html.Attributes.href (publishUrl h wptr)] 
-      [ h2 [] [ text "Publish times" ]
-      , addTimesText h ]
-    
-    
+        |> Maybe.withDefault Cmd.none 

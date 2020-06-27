@@ -1,19 +1,11 @@
-module SessionState exposing (SessionState, isSignedIn, sessionstateView, signinLink, staleSession)
+module SessionState exposing (SessionState, isSignedIn, sessionstateView, signinLink, staleSession, homelink)
 
-import Html exposing (Html, p, input, text, button, h2, h3, i, div)
+import Html exposing (Html, p, input, text, button, h1, h2, h3, i, div, a)
 import Route exposing (Route, logoutUrl, loginUrl)
-import Html.Attributes exposing (class, action, method, type_, name, value, disabled)
+import Html.Attributes exposing (class, action, method, type_, name, value, disabled, href)
 
 type alias SessionState
     = Maybe String
-
--- init : Maybe String -> SessionState
--- init name = 
---     Maybe.map Fresh name
---     |> Maybe.withDefault None
-
--- recordStaleness : SessionState
--- recordStaleness = Stale
 
 isSignedIn : SessionState -> Bool
 isSignedIn s =
@@ -24,7 +16,7 @@ isSignedIn s =
         _ ->
             False
 
-formLink : Maybe String -> String -> String -> Html msg
+formLink : Maybe String -> String -> Html msg -> Html msg
 formLink csrf url label =
     case csrf of
     Just t -> 
@@ -36,7 +28,7 @@ formLink csrf url label =
             [ button
                 [ type_ "submit"
                 ]
-                [ text label ]
+                [ label ]
             , input
                 [ type_ "hidden"
                 , name "__RequestVerificationToken"
@@ -54,15 +46,15 @@ formLink csrf url label =
                 [ type_ "submit"
                 , disabled True
                 ]
-                [ text label ]
+                [ label ]
             ]
 
 logoutTrigger : Route -> Maybe String -> Html msg
 logoutTrigger route csrf =
-    formLink csrf (logoutUrl route) "Logout"
+    formLink csrf (logoutUrl route) (text "Logout")
 loginTrigger : Route -> (Maybe String) -> Html msg
 loginTrigger route csrf =
-    formLink csrf (loginUrl route) "Login"
+    formLink csrf (loginUrl route) (text "Login")
 
 signinLink : Route -> (Maybe String) -> SessionState -> List (Html msg)
 signinLink r csrf ss =
@@ -113,6 +105,23 @@ staleSession r csrf =
             , loginTrigger r csrf
             , text " again."
             ]
+        ]
+
+homelink : SessionState -> Route ->  Maybe String -> Html msg
+homelink s route csrf =
+    div [ class "content"
+        , class "heavy" 
+        , class "home"
+        ] 
+        [ h1 [] 
+          [ a
+            [ href "/"
+            ]
+            [ text "Publish" ]
+          ]
+        , case s of
+            Just _ -> formLink csrf (logoutUrl route) (i [class "fas", class "fa-sign-out-alt" ] [])
+            _ -> text ""
         ]
     
     
