@@ -300,8 +300,8 @@ notFoundView =
 
 bookingsLink : Model -> Html Msg
 bookingsLink m =
-    case m.sessionState of
-      Just _ -> 
+    case m.hostnameSubmission of
+      Submitted _ -> 
         a [ Html.Attributes.href "/bookings" 
           ] 
           [ h2 [] [ text "My bookings" ]

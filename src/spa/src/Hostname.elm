@@ -186,7 +186,7 @@ errorView _ =
 
 hostnameForm : (String -> msg) -> (String -> msg) -> msg -> HostnameForm -> Bool -> Html msg
 hostnameForm namechange handlechange submit hf submitting = Html.div 
-    [ class "navlink" ]
+    [ ]
     [ h2 [] [ text "Submit a hostname"]
     , p [] [ text hostDescription]
     , h3 [] [ b [] [text "Handle"] ]
