@@ -1,12 +1,10 @@
 module Hostname exposing
-    ( Hostname
-    , hostnameForm
-    , HostnameForm
-    , initHostnameForm
-    , setHandleValue
-    , setNameValue
-    , setError
-    , addHost
+    ( Model
+    , hasHostname
+    , init
+    , Msg(..)
+    , update
+    , view
     )
 
 import Html exposing (..)
@@ -17,10 +15,37 @@ import Html.Events exposing (onInput)
 import Http exposing (Error)
 import Url.Builder as UrlB
 
+type ValidationError = BadLength | InvalidChars
+type Input = Input (List ValidationError) String 
+
+type alias HostnameForm = 
+    { name : Input 
+    , handle : Input
+    , failed: Maybe Error
+    }
+
 type alias Hostname =
     { name : String
     , handle : String
     }
+
+type Model =
+  Unsubmitted HostnameForm
+  | Submitting HostnameForm
+  | FailedSubmit HostnameForm
+  | Submitted Hostname
+
+hasHostname : Model -> Maybe Hostname
+hasHostname m =
+  case m of
+    Submitted hn -> Just hn
+    _            -> Nothing  
+
+init : Maybe String -> Maybe String -> Model
+init name handle =
+  Maybe.map2 Hostname name handle
+  |> Maybe.map Submitted
+  |> Maybe.withDefault (Unsubmitted initHostnameForm)
 
 encodeHostname : Hostname -> Value
 encodeHostname h =
@@ -38,16 +63,6 @@ decodeHostname =
 type alias HandleValue = String
 type alias NameValue = String
 
-type ValidationError = BadLength | InvalidChars
-type Input = Input (List ValidationError) String 
-
-type alias HostnameForm = 
-    { name : Input 
-    , handle : Input
-    , failed: Maybe Error
-    }
-
-
 isValidInput : Input -> Bool
 isValidInput i =
     case i of
@@ -59,7 +74,6 @@ isValidHostnameForm hf = isValidInput hf.name && isValidInput hf.handle
             
 hasError : Input -> ValidationError -> Bool 
 hasError (Input es _) e = List.any ((==) e) es
-
 
 handleIsLongerThan2AndShorterThan64 : String -> (Maybe ValidationError) 
 handleIsLongerThan2AndShorterThan64 s =
@@ -123,6 +137,48 @@ setError e hf = { hf | failed = Just e }
 
 setNameValue : NameValue -> HostnameForm -> HostnameForm
 setNameValue n hf = { hf | name = toNameInput n }
+
+isAuthError : Http.Error -> Bool
+isAuthError e =
+  case e of
+    Http.BadStatus 401 -> True
+    _ -> False
+
+type Msg
+    = HandleValueChanged String
+    | NameValueChanged String
+    | SubmitHost
+    | HostAdded (Result Http.Error Hostname)
+
+update : (Msg -> msg) -> Model -> Msg -> Maybe (Model, Cmd msg) 
+update toAppMsg model msg = 
+    case msg of
+        HostAdded (Ok h) -> 
+          Just 
+          ( Submitted h 
+          , Cmd.none
+          )
+
+        HostAdded (Err e) ->
+          if isAuthError e
+          then Nothing 
+          else case model of
+                Submitting hf -> Just ( FailedSubmit (hf |> setError e), Cmd.none)
+                _             -> Just ( FailedSubmit (initHostnameForm |> setError e), Cmd.none )
+        HandleValueChanged s -> 
+          case model of
+            Unsubmitted hf -> Just ( Unsubmitted (setHandleValue s hf), Cmd.none)
+            _              -> Just ( model, Cmd.none )
+    
+        NameValueChanged s -> 
+          case model of
+            Unsubmitted hf -> Just ( Unsubmitted (setNameValue s hf), Cmd.none)
+            _              -> Just ( model, Cmd.none )
+    
+        SubmitHost -> 
+          case model of
+            Unsubmitted hf -> Just ( Submitting hf, addHost (toAppMsg << HostAdded) hf)
+            _              -> Just (model, Cmd.none )
 
 hostDescription : String
 hostDescription = String.join " "
@@ -217,3 +273,21 @@ addHost response hf =
         toHostname hf
         |> Maybe.map req
         |> Maybe.withDefault Cmd.none 
+
+view : (Msg -> msg) -> Model -> List (Html msg)
+view toAppMsg m =
+    case m of
+      Unsubmitted hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False ]
+      Submitting hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf True ]
+      FailedSubmit hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False ]
+      Submitted hn -> 
+        [ h2 [] [ text "Hostname" ]
+        , p [] 
+          [ text ("You've registered " ++ hn.name ++ " as hostname. Go on and ")
+          , a 
+            [ Html.Attributes.href ("/publish/" ++ hn.handle) ]
+            [ text "publish" ]
+          , text " some times already."
+          ] 
+        ]
+      

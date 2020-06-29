@@ -6,11 +6,11 @@ import Html exposing (..)
 import Http exposing (Error)
 import Html.Attributes exposing (..)
 import Html.Events
-import Hostname exposing (HostnameForm, Hostname, hostnameForm, initHostnameForm, setHandleValue, setNameValue, setError, addHost)
+import Hostname as HN
 import Url exposing (Url)
 import Url.Builder as UrlB
 import Route exposing (Route(..), toRoute, getWptr, addWptr, setWptrDay)
-import SessionState exposing (SessionState, sessionstateView, signinLink)
+import SessionState as SS
 import Weekpointer exposing (Weekpointer, weekpointerView)
 -- import Times exposing (publishedTimesView, TimeListing, Time, listTimes, TimesListCall, initTimesCall, faultyTimesCall, recieveTimesCall, reloadTimesCall, decodeTime, decodeTimes)
 import Timesubmission as TS
@@ -44,36 +44,19 @@ main =
 
 -- MODEL
 
-type alias AntiCsrfToken = String
-type alias Username = Maybe String
-
 type alias Flags =
-  { antiCsrf: AntiCsrfToken
-  , username: Username
+  { antiCsrf: SS.AntiCsrfToken
+  , username: Maybe SS.Username
   , hostName: Maybe String
   , hostHandle: Maybe String
   , weekpointer: (String, Weekpointer)
   }
 
-type HostnameSubmission =
-  Unsubmitted HostnameForm
-  | Submitting HostnameForm
-  | FailedSubmit HostnameForm
-  | Submitted Hostname
-
-initHostnameSubmission : Maybe String -> Maybe String -> HostnameSubmission
-initHostnameSubmission name handle =
-  Maybe.map2 Hostname name handle
-  |> Maybe.map Submitted
-  |> Maybe.withDefault (Unsubmitted initHostnameForm)
-  
-
 type alias Model =
   { key : Nav.Key
   , route : Route
-  , antiCsrf : Maybe AntiCsrfToken
-  , sessionState : SessionState
-  , hostnameSubmission : HostnameSubmission
+  , sessionState : SS.Model
+  , hostnameSubmission : HN.Model
   , weekpointer: Weekpointer
   , times : TS.Model
   }
@@ -86,9 +69,8 @@ init flags url key =
   in
   ( { key = key
     , route = toRoute url
-    , antiCsrf = Just flags.antiCsrf
-    , sessionState = flags.username
-    , hostnameSubmission = initHostnameSubmission flags.hostName flags.hostHandle
+    , sessionState = SS.init flags.username (Just flags.antiCsrf)
+    , hostnameSubmission = HN.init flags.hostName flags.hostHandle
     , weekpointer = weekpointer
     , times = times
     }
@@ -107,10 +89,7 @@ init flags url key =
 type Msg
   = LinkClicked UrlRequest
   | UrlChanged Url
-  | SubmitHost
-  | HostAdded (Result Http.Error Hostname)
-  | HandleValueChanged String
-  | NameValueChanged String
+  | HostSubmissionUpdate HN.Msg
   | DayfocusChanged String
   | PrevWeekpointer
   | CurrWeekpointer
@@ -145,38 +124,29 @@ update msg model =
       in
         ( { model | route = nRoute }
         , case nRoute of
-          PublishRoute _ _ -> TS.idTimeSubmission model.times.submission
+          PublishRoute _ _ -> Cmd.batch
+            [ TS.idTimeSubmission model.times.submission
+            , TS.listTimes TimesubmissionUpdate model.weekpointer.window
+            ]
           _ -> Cmd.none
         )
     
-    HostAdded (Ok h) -> ({ model | hostnameSubmission = Submitted h }, Cmd.none) 
-    HostAdded (Err e) -> 
-      case model.hostnameSubmission of
-        Submitting hf -> ({ model | hostnameSubmission = FailedSubmit (hf |> setError e) }, Cmd.none)
-        _             -> ({ model | hostnameSubmission = FailedSubmit (initHostnameForm |> setError e) }, Cmd.none)
-    HandleValueChanged s -> 
-      case model.hostnameSubmission of
-        Unsubmitted hf -> ( { model 
-                            | hostnameSubmission = Unsubmitted (setHandleValue s hf)
-                            }
-                          , Cmd.none)
-        _              -> (model, Cmd.none)
-
-    NameValueChanged s -> 
-      case model.hostnameSubmission of
-        Unsubmitted hf -> ( { model 
-                            | hostnameSubmission = Unsubmitted (setNameValue s hf)
-                            }
-                          , Cmd.none)
-        _              -> (model, Cmd.none)
-
-    SubmitHost -> 
-      case model.hostnameSubmission of
-        Unsubmitted hf -> ( { model
-                            | hostnameSubmission = Submitting hf
-                            } 
-                          , addHost HostAdded hf)
-        _              -> (model, Cmd.none)
+    HostSubmissionUpdate hn -> 
+      let
+          r = HN.update HostSubmissionUpdate model.hostnameSubmission hn
+      in
+        case r of
+          Just (m, cmd) -> 
+             ( { model 
+               | hostnameSubmission = m }
+             , cmd
+             )
+          Nothing       -> 
+              ( { model 
+                | sessionState = SS.sessionEnded 
+                }
+              , getNewAntiscrf
+              )
 
     DayfocusChanged d ->
       let
@@ -212,9 +182,9 @@ update msg model =
       ( { model | weekpointer = weekpointer }
       , Cmd.batch 
         [ Nav.pushUrl model.key (addWptr model.route query)
-        , case model.sessionState of
-          Just _ -> TS.listTimes TimesubmissionUpdate weekpointer.window
-          _ -> Cmd.none
+        , if SS.isSignedIn model.sessionState
+          then TS.listTimes TimesubmissionUpdate weekpointer.window
+          else Cmd.none
         ]
       )
 
@@ -225,12 +195,17 @@ update msg model =
         case r of
         Just (m, cmd) -> ( { model | times = m }, cmd )
         Nothing -> 
-          ( { model | sessionState = Nothing }
+          ( { model 
+            | sessionState = SS.sessionEnded 
+            }
           , getNewAntiscrf
           )
 
     GotNewAnticsrf (Ok t) ->
-      ( { model | antiCsrf = Just t}, Cmd.none)
+      ( { model 
+        | sessionState = SS.antiCsrfRefreshed model.sessionState t
+        }
+      , Cmd.none)
 
     GotNewAnticsrf (Err e) ->
       ( model, Cmd.none )
@@ -254,33 +229,33 @@ subscriptions _ =
 
 -- VIEW
 
-addTimesText : Hostname -> Html msg
-addTimesText h =
-    p [] 
-        [ text "Your publisher name is "
-        , b [] [ text h.name ] 
-        , text "." ]
+-- addTimesText : Hostname -> Html msg
+-- addTimesText h =
+--     p [] 
+--         [ text "Your publisher name is "
+--         , b [] [ text h.name ] 
+--         , text "." ]
 
-publishUrl : Hostname -> (Maybe String) -> String
-publishUrl h wptr = 
-    UrlB.relative 
-        [ "publish", h.handle ]
-        (Maybe.map (\x -> [ UrlB.string "wptr" x ]) wptr |> Maybe.withDefault [])
+-- publishUrl : Hostname -> (Maybe String) -> String
+-- publishUrl h wptr = 
+--     UrlB.relative 
+--         [ "publish", h.handle ]
+--         (Maybe.map (\x -> [ UrlB.string "wptr" x ]) wptr |> Maybe.withDefault [])
 
-addTimesLink : Hostname -> (Maybe String) -> Html msg
-addTimesLink h wptr =
-    a [ Html.Attributes.href (publishUrl h wptr)] 
-      [ h2 [] [ text "Publish times" ]
-      , addTimesText h ]
+-- addTimesLink : Hostname -> (Maybe String) -> Html msg
+-- addTimesLink h wptr =
+--     a [ Html.Attributes.href (publishUrl h wptr)] 
+--       [ h2 [] [ text "Publish times" ]
+--       , addTimesText h ]
 
-renderHostnameForm : Model -> Html Msg
-renderHostnameForm m =
-  case (m.sessionState, m.hostnameSubmission) of
-    (Nothing, _) -> text ""
-    (_, Unsubmitted hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
-    (_, Submitting hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf True
-    (_, FailedSubmit hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
-    (_, Submitted h) -> addTimesLink h (getWptr m.route)
+-- renderHostnameForm : Model -> Html Msg
+-- renderHostnameForm m =
+--   case (SS.isSignedIn m.sessionState, m.hostnameSubmission) of
+--     (False, _)           -> text ""
+--     (_, Unsubmitted hf)  -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
+--     (_, Submitting hf)   -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf True
+--     (_, FailedSubmit hf) -> hostnameForm NameValueChanged HandleValueChanged SubmitHost hf False
+--     (_, Submitted h)     -> addTimesLink h (getWptr m.route)
 
 notFoundText : Html Msg
 notFoundText = 
@@ -300,8 +275,8 @@ notFoundView =
 
 bookingsLink : Model -> Html Msg
 bookingsLink m =
-    case m.hostnameSubmission of
-      Submitted _ -> 
+    case HN.hasHostname m.hostnameSubmission of
+      Just _ -> 
         a [ Html.Attributes.href "/bookings" 
           ] 
           [ h2 [] [ text "My bookings" ]
@@ -309,27 +284,77 @@ bookingsLink m =
           ]
       _ -> text ""
 
+publishOrAddHostLink : Model -> Html Msg
+publishOrAddHostLink m =
+  case (SS.isSignedIn m.sessionState, HN.hasHostname m.hostnameSubmission) of
+    (False, _)       -> text ""
+    (True, Just hn)  ->
+      a [ Html.Attributes.href (Route.routeToUrl (PublishRoute hn.handle (Route.getWptr m.route)))
+        ]
+        [ h2 [] [ text "Publish times" ]
+        , p [] [ text ( "You're publishing times as " ++ hn.name ) ]
+        ]
+
+    (True, Nothing)  -> 
+      a [ Html.Attributes.href (Route.routeToUrl (HostRoute (Route.getWptr m.route)))
+        ]
+        [ h2 [] [ text "Register a hostname" ]
+        , p [] [ text "Before you can publish times you need to register a hostname." ]
+        ]
+
+homelink : Model -> Html msg
+homelink model =
+    div [ class "content"
+        , class "heavy" 
+        , class "home"
+        ] 
+        [ h1 [] 
+          [ a
+            [ href "/"
+            ]
+            [ text "Publish" ]
+          ]
+        , if SS.isSignedIn model.sessionState
+          then SS.formLink model.sessionState (Route.logoutUrl model.route) (i [class "fas", class "fa-sign-out-alt" ] [])
+          else text ""
+        ]
+
+signinLink : Model -> List (Html msg)
+signinLink m =
+    if SS.isSignedIn m.sessionState
+    then 
+      [ text "" ]
+    else 
+      [ h2 [] [ text "Login required" ]
+      , p
+        []
+        [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
+        , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
+        , text " so we know who you are."
+        ]
+      ]
+
 routeToView : Model -> List (Html Msg)
 routeToView m =
     case m.route of
         NotFound ->
-            [ SessionState.homelink m.sessionState m.route m.antiCsrf 
+            [ homelink m 
             , div [ class "content", class "light" ] [notFoundView] 
             ]
 
         HomeRoute _ ->
-            [ SessionState.homelink m.sessionState m.route m.antiCsrf
+            [ homelink m
             , div [ class "content", class "light", class "homeLinklist" ] 
             ( List.concat 
-                [ signinLink m.route m.antiCsrf m.sessionState
+                [ signinLink m
                 , [ bookingsLink m ]
-                , [ renderHostnameForm m]
+                , [ publishOrAddHostLink m ]
                 ]
             )
             ]
         
         BookingsRoute _ -> 
-          [ SessionState.homelink m.sessionState m.route m.antiCsrf
+          [ homelink m
             , div 
               [ class "content"
               , class "light" 
@@ -341,25 +366,53 @@ routeToView m =
               ]
           ]
 
+        HostRoute _ ->
+          [ homelink m
+          , div
+            [ class "content"
+            , class "light"
+            ]
+            ( if SS.isSignedIn m.sessionState
+              then HN.view HostSubmissionUpdate m.hostnameSubmission
+              else 
+                [ h2 [] [ text "Login required" ]
+                , p
+                  []
+                  [ text "Before you can register a hostname you ned to "
+                  , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
+                  , text " so we know who you are."
+                  ]
+                ]
+            )
+          ]
+
         PublishRoute _ wptr -> 
-          [ SessionState.homelink m.sessionState m.route m.antiCsrf
+          [ homelink m
             , div 
               [ class "content"
               , class "light" 
               ]
               ( h2 [] [ text "Publish times."] 
               :: p [] [ text "Each time you publish the form will reset to the next time leaving a specified pause. Any published time that has not been booked can be unpublished at any time. Any published time is browseable by the public."]
-              ::  case m.sessionState of
-                Just _ ->
-                  [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-                  , TS.view TimesubmissionUpdate wptr m.weekpointer.day m.times
+              :: if SS.isSignedIn m.sessionState 
+                 then
+                   [ weekpointerView DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+                   , TS.view TimesubmissionUpdate wptr m.weekpointer.day m.times
+                   ]
+                 else 
+                  [ h2 [] [ text "Login required" ]
+                  , p
+                    []
+                    [ text "Your session is expired. You need to "
+                    , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
+                    , text " again to continue."
+                    ]
                   ]
-                _ -> 
-                  [ SessionState.staleSession m.route m.antiCsrf ])
+              )
           ]
 
         Route.Appointment _ _ ->
-          [ SessionState.homelink m.sessionState m.route m.antiCsrf
+          [ homelink m
             , div 
               [ class "content"
               , class "light" 
