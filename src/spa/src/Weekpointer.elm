@@ -1,7 +1,8 @@
 module Weekpointer exposing 
-    ( Weekpointer
+    ( Window
+    , Model
     , setDay
-    , weekpointerView
+    , view
     )
 
 import Route exposing (Route(..))
@@ -11,17 +12,18 @@ import Html.Events exposing (onClick)
 
 type alias Window = (Int, Int)
 
-type alias Weekpointer =
+type alias Model =
     { name : String 
     , day : String
     , window: Window
+    , query: String
     }
 
-setDay : Weekpointer -> String -> Weekpointer
+setDay : Model -> String -> Model
 setDay wp d = { wp | day = d } 
 
-weekpointerView : (String -> msg) -> msg -> msg -> msg -> Weekpointer -> Html msg
-weekpointerView changeday pw cw nw wp =
+view : (String -> msg) -> msg -> msg -> msg -> Model -> Html msg
+view changeday pw cw nw wp =
     let
        dayfocus d = classList 
         [ ("heavy", d == wp.day) 
@@ -40,7 +42,7 @@ weekpointerView changeday pw cw nw wp =
             , button [ dayfocus "Sun", onClick (changeday "Sun" ) ] [ text "sun" ] 
             ]
         , span  [ class "weekstepper" ] 
-            [ p [ ] [text wp.name] 
+            [ p [ ] [ text wp.name ] 
             , button [ onClick pw ] [ text "previous" ]
             , button [ onClick cw ] [ text "current" ]
             , button [ onClick nw ] [ text "next" ]

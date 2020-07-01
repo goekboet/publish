@@ -59,6 +59,10 @@ function parseweek(s) {
     }
 }
 
+function toQuery(wptr) {
+    return wptr.year + '-' + wptr.week + '-' + wptr.day;
+}
+
 function zeroPad2w(s) {
     return ("0" + s).slice(-2);
 }
@@ -84,7 +88,7 @@ window.identifyTime = function (query, t) {
     if (wpt !== null) {
         var year = new Date(wpt.year,0);
         var week = setISOWeek(year, wpt.week);
-        d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
+        d = setDay(week, toIndex(t.day), { weekStartsOn: 1 });
     }
     else {
         d = new Date();
@@ -97,37 +101,36 @@ window.identifyTime = function (query, t) {
     var end = addMinutes(start, t.durMinutes);
  
     t.name = 
-        format(start, "iii, MMM dd, 'w.'II yyyy") 
-        + " " 
-        + format(start, 'HH:mm')
+        format(start, 'HH:mm')
         + " - "
         + format(end, 'HH:mm');
     t.id = getUnixTime(start);
     t.day = format(d, 'iii');
+    wpt.day = t.day
 
-    return t;
+    return [toQuery(wpt), t];
+}
+
+window.initWptrQuery = function initWptrQuery() {
+    return format(new Date(), 'yyyy-II-iii');
 }
 
 window.getWeekpointer = function getWeekpointer(query, offset) {
-    var d = new Date();
+    if (query === null) {
+        query = initWptrQuery()
+    }
     var wpt = parseweek(query);
-    if (wpt !== null) {
-        var year = new Date(wpt.year,0);
-        var week = setISOWeek(year, wpt.week + offset);
-        d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
-    }
-    else {
-        d = new Date();
-    }
+    var year = new Date(wpt.year,0);
+    var week = setISOWeek(year, wpt.week + offset);
+    var d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
     
-    return [ 
-        format(d, 'yyyy-II-iii'), 
-        {
-            name: format(d, "iii, MMM dd, 'w.'II yyyy"),
+    return {
+            name: format(d, "MMM dd, 'w.'II yyyy"),
             day: format(d, 'iii'),
             window: [ getUnixTime(startOfISOWeek(d)),
-                      getUnixTime(endOfISOWeek(d))]
-        }]
+                      getUnixTime(endOfISOWeek(d))],
+            query: format(d, 'yyyy-II-iii')
+        }
 }
 
 function toTime(t) {

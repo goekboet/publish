@@ -485,18 +485,12 @@ isError t =
     SubmissionErrored -> True
     _ -> False
 
-appointmentLink : Int -> Maybe String -> String
-appointmentLink id wptr =
-  let
-    wptrq = 
-      Maybe.map (\x -> [ Url.Builder.string "wptr" x ]) wptr
-      |> Maybe.withDefault []
+appointmentLink : Int -> String
+appointmentLink id =
+  Url.Builder.absolute ["appointment", String.fromInt id ] []
 
-  in
-  Url.Builder.absolute ["appointment", String.fromInt id ] wptrq
-
-timeView : (Msg -> msg) -> Maybe String -> Time -> Html msg
-timeView toAppMsg wptr t =
+timeView : (Msg -> msg) -> Time -> Html msg
+timeView toAppMsg t =
   case t.status of
     SubmissionPending -> 
       li []
@@ -527,7 +521,7 @@ timeView toAppMsg wptr t =
       li []
           [ i [ class "fas", class "fa-user-circle" ] []
           , p [] [ text t.name ]
-          , a [ class "heavy", href (appointmentLink t.id wptr) ] [ text "go to booking" ]
+          , a [ class "heavy", href (appointmentLink t.id) ] [ text "go to booking" ]
           ]
 
 listingErrorMsg : (Msg -> msg) -> Listing -> Html msg
@@ -544,8 +538,8 @@ listingErrorMsg toAppmsg l =
           ]
       _ -> text ""
 
-view : (Msg -> msg) -> Maybe String -> String -> Model -> Html msg
-view wrap wptr day { submission, listing } =
+view : (Msg -> msg) -> String -> Model -> Html msg
+view wrap day { submission, listing } =
   let
     times = 
       getTimes listing
@@ -598,9 +592,9 @@ view wrap wptr day { submission, listing } =
         ]
       , listingErrorMsg wrap listing
       , if List.length conflicts > 0 then h3 [] [ text "Conflicting times." ] else text ""
-      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) conflicts)
+      , ul [ class "timelisting" ] (List.map (timeView wrap) conflicts)
       , if List.length errors > 0 then h3 [] [ text "Errors" ] else text ""
-      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) errors)
+      , ul [ class "timelisting" ] (List.map (timeView wrap) errors)
       , h3 [] [ text "Published times" ]
-      , ul [ class "timelisting" ] (List.map (timeView wrap wptr) published)
+      , ul [ class "timelisting" ] (List.map (timeView wrap) published)
       ]
