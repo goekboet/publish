@@ -33,20 +33,20 @@ route =
         , UrlP.map PublishRoute (UrlP.s "publish" </> UrlP.string)
         , UrlP.map Appointment (UrlP.s "appointment" </> UrlP.string) ]
 
-routeToUrl : Route -> String -> String
-routeToUrl r wptr = 
+routeToUrl : Route -> String
+routeToUrl r = 
     case r of
-        HomeRoute -> UrlB.absolute [] [ UrlB.string "wptr" wptr ] 
-        BookingsRoute -> UrlB.absolute [ "bookings" ] [ UrlB.string "wptr" wptr ]
-        HostRoute -> UrlB.absolute [ "host" ] [ UrlB.string "wptr" wptr ]
-        PublishRoute h -> UrlB.absolute [ "publish", h ] [ UrlB.string "wptr" wptr ]
-        Appointment start -> UrlB.absolute [ "appointment", start ] [ UrlB.string "wptr" wptr ]
-        NotFound -> UrlB.absolute [] [ UrlB.string "wptr" wptr ]
+        HomeRoute -> UrlB.absolute [] [] 
+        BookingsRoute -> UrlB.absolute [] []
+        HostRoute -> UrlB.absolute [] []
+        PublishRoute h -> UrlB.absolute [ "publish", h ] []
+        Appointment start -> UrlB.absolute [ "appointment", start ] []
+        NotFound -> UrlB.absolute [] []
             
-loginUrl : Route -> String -> String
-loginUrl r wptr =
-    UrlB.absolute [ "login" ] [ UrlB.string "sparoute" (routeToUrl r wptr) ]
+loginUrl : Route -> String
+loginUrl r =
+    UrlB.absolute [ "login" ] [ UrlB.string "sparoute" (routeToUrl r) ]
 
-logoutUrl : Route -> String -> String
-logoutUrl r wptr =
-    UrlB.absolute [ "logout" ] [ UrlB.string "sparoute" (routeToUrl r wptr) ]
+logoutUrl : Route -> String
+logoutUrl r =
+    UrlB.absolute [ "logout" ] [ UrlB.string "sparoute" (routeToUrl r) ]

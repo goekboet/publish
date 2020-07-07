@@ -8,7 +8,7 @@
   "description": "not intended for public use",
   "main": "app.js",
   "dependencies": {
-    "date-fns": "^2.13.0"
+    "date-fns": "^2.14.0"
   },
   "devDependencies": {
     "browserify": "^16.5.1",

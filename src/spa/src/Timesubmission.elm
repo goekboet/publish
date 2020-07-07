@@ -12,7 +12,7 @@ port module Timesubmission exposing
     , decodeTimes
     )
 
-import Html exposing (Html, span, p, input, button, text, li, ul, a, div, h3, i)
+import Html exposing (Html, span, p, input, button, text, li, ul, a, div, h3, h2, i)
 import Html.Attributes as Attr exposing (class, type_, min, max, value, step, id, href )
 import Html.Events exposing (onInput, onClick)
 import Http exposing (Error)
@@ -21,7 +21,7 @@ import Json.Encode as Encode exposing (Value)
 import Json.Decode as Decode exposing (Decoder)
 import Route exposing (Route(..))
 
-port idTimeSubmission : Submission -> Cmd a
+port idTimeSubmission : (Int, Submission) -> Cmd a
 port timeSubmissionId : (Submission -> msg) -> Sub msg
 port formatTimeListing : (List TimeListing) -> Cmd a
 port timelistingFormatted : (Value -> msg) -> Sub msg
@@ -341,7 +341,7 @@ update toAppMsg window msg model =
             in
             Just
             ( { model | submission = newSubmission } 
-            , idTimeSubmission newSubmission
+            , idTimeSubmission (Tuple.first window, newSubmission)
             )
       
         DurChange s -> 
@@ -385,7 +385,7 @@ update toAppMsg window msg model =
                 |> Maybe.withDefault model.listing
               }
             , Cmd.batch
-              [ idTimeSubmission newSubmission
+              [ idTimeSubmission (Tuple.first window, newSubmission)
               , Maybe.map
                 (\x -> submitTime (toAppMsg << TimePublished x.id) model.submission) pending
                 |> Maybe.withDefault Cmd.none
@@ -571,17 +571,7 @@ view wrap day { submission, listing } =
         _ -> True  
   in
     div [] 
-      [ i 
-        [ Html.Events.onClick (wrap ReloadTimelisting)
-        , Attr.classList 
-          [ ("fas", True) 
-          , ("fa-sync-alt", True)
-          , ("rolls", rolls listing)
-          ]
-        ] 
-        []
-      , h3 [] [ text "Publish a time" ]
-      , span [ class "addTime"] 
+      [ span [ class "addTime"] 
         [ p [] [ text "start"]
         , input [ type_ "time", onInput (wrap << StartChange), value submission.start ] []
         , p [] [ text "duration" ]
@@ -590,11 +580,22 @@ view wrap day { submission, listing } =
         , input [type_ "number", Attr.min "1", Attr.max "999", value (String.fromInt submission.pause), onInput (wrap << PauseChange), step "5" ] []
         , button [ onClick (wrap SubmitTime), Attr.disabled submittable ] [ text "publish"]
         ]
-      , listingErrorMsg wrap listing
       , if List.length conflicts > 0 then h3 [] [ text "Conflicting times." ] else text ""
       , ul [ class "timelisting" ] (List.map (timeView wrap) conflicts)
+      , span [ class "timeHeader" ]
+        [ i 
+          [ Html.Events.onClick (wrap ReloadTimelisting)
+          , Attr.classList 
+            [ ("fas", True) 
+            , ("fa-sync-alt", True)
+            , ("rolls", rolls listing)
+            ]
+          ] 
+          []
+        , h2 [] [ text "Published times:" ]
+        ]
+      , listingErrorMsg wrap listing
       , if List.length errors > 0 then h3 [] [ text "Errors" ] else text ""
       , ul [ class "timelisting" ] (List.map (timeView wrap) errors)
-      , h3 [] [ text "Published times" ]
       , ul [ class "timelisting" ] (List.map (timeView wrap) published)
       ]

@@ -15,10 +15,7 @@ import Bookings exposing (bookingsView, mockedbookings)
 import Json.Decode as Decode
 import Url.Builder exposing (absolute)
 
-
-port nextWeekpointer : (Maybe String) -> Cmd a
-port currWeekpointer : (Maybe String) -> Cmd a
-port prevWeekpointer : (Maybe String) -> Cmd a
+port moveWeekpointer : (Int, WP.Model) -> Cmd a
 port gotWeekpointer : (WP.Model -> msg) -> Sub msg
 
 
@@ -61,12 +58,6 @@ init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
       times = TS.init flags.weekpointer.day
-      wptrQuery = 
-        Url.Builder.string "wptr" flags.weekpointer.query
-        |> List.singleton
-        |> Url.Builder.toQuery
-        |> String.dropLeft 1 
-
       route = toRoute url
       sessionState = SS.init flags.username (Just flags.antiCsrf)
 
@@ -78,20 +69,16 @@ init flags url key =
     , weekpointer = flags.weekpointer
     , times = times
     }
-  , Cmd.batch
-    [ Url.toString { url | query = Just wptrQuery }
-      |> Nav.replaceUrl key
-    , case route of
-        HomeRoute      -> Cmd.none
-        BookingsRoute  -> Cmd.none
-        HostRoute      -> Cmd.none
-        PublishRoute _ -> 
-          case flags.hostHandle of
-          Just _ ->  TS.listTimes TimesubmissionUpdate flags.weekpointer.window
-          _      -> Cmd.none 
-        Appointment _  -> Cmd.none
-        NotFound       -> Cmd.none
-    ]
+  , case route of
+    HomeRoute      -> Cmd.none
+    BookingsRoute  -> Cmd.none
+    HostRoute      -> Cmd.none
+    PublishRoute _ -> 
+      case flags.hostHandle of
+      Just _ ->  TS.listTimes TimesubmissionUpdate flags.weekpointer.window
+      _      -> Cmd.none 
+    Appointment _  -> Cmd.none
+    NotFound       -> Cmd.none
   )
  
 
@@ -125,7 +112,7 @@ update msg model =
     LinkClicked urlRequest ->
       case urlRequest of
         Browser.Internal url ->
-          ( model, Nav.pushUrl model.key (Url.toString { url | query = Just ("wptr=" ++ model.weekpointer.query) }) )
+          ( model, Nav.pushUrl model.key (Url.toString url) ) 
 
         Browser.External href ->
           ( model, Nav.load href )
@@ -137,7 +124,7 @@ update msg model =
         ( { model | route = nRoute }
         , case nRoute of
           PublishRoute _ -> Cmd.batch
-            [ TS.idTimeSubmission model.times.submission
+            [ TS.idTimeSubmission (Tuple.first model.weekpointer.window, model.times.submission)
             , TS.listTimes TimesubmissionUpdate model.weekpointer.window
             ]
           _ -> Cmd.none
@@ -169,24 +156,20 @@ update msg model =
         | times = newTimes
         , weekpointer = WP.setDay model.weekpointer d
         }
-      , TS.idTimeSubmission newTimes.submission
+      , TS.idTimeSubmission (Tuple.first model.weekpointer.window, newTimes.submission)
       ) 
     
-    PrevWeekpointer -> (model, prevWeekpointer (Just model.weekpointer.query) )
+    PrevWeekpointer -> (model, moveWeekpointer (-1, model.weekpointer) )
 
-    CurrWeekpointer -> (model, currWeekpointer Nothing )
+    CurrWeekpointer -> (model, moveWeekpointer ( 0, model.weekpointer) )
 
-    NextWeekpointer -> (model, nextWeekpointer (Just model.weekpointer.query) )
+    NextWeekpointer -> (model, moveWeekpointer ( 1, model.weekpointer) )
 
     GotWeekpointer wptr -> 
       ( { model | weekpointer = wptr }
-      , Cmd.batch 
-        [ case (model.route, model.hostnameSubmission) of
-          (PublishRoute _, HN.Submitted _) -> TS.listTimes TimesubmissionUpdate wptr.window
-          _ -> Cmd.none
-        , Route.routeToUrl model.route wptr.query
-          |> Nav.pushUrl model.key
-        ]
+      , case (model.route, model.hostnameSubmission) of
+        (PublishRoute _, HN.Submitted _) -> TS.listTimes TimesubmissionUpdate wptr.window
+        _ -> Cmd.none
       )
 
     TimesubmissionUpdate ts -> 
@@ -262,14 +245,14 @@ publishOrAddHostLink m =
   case (SS.isSignedIn m.sessionState, HN.hasHostname m.hostnameSubmission) of
     (False, _)       -> text ""
     (True, Just hn)  ->
-      a [ Html.Attributes.href (Route.routeToUrl (PublishRoute hn.handle) m.weekpointer.query)
+      a [ Html.Attributes.href (Route.routeToUrl (PublishRoute hn.handle) )
         ]
         [ h2 [] [ text "Publish times" ]
         , p [] [ text ( "You're publishing times as " ++ hn.name ) ]
         ]
 
     (True, Nothing)  -> 
-      a [ Html.Attributes.href (Route.routeToUrl HostRoute m.weekpointer.query) 
+      a [ Html.Attributes.href (Route.routeToUrl HostRoute) 
         ]
         [ h2 [] [ text "Register a hostname" ]
         , p [] [ text "Before you can publish times you need to register a hostname." ]
@@ -288,7 +271,7 @@ homelink model =
             [ text "Publish" ]
           ]
         , if SS.isSignedIn model.sessionState
-          then SS.formLink model.sessionState (Route.logoutUrl model.route model.weekpointer.query) (i [class "fas", class "fa-sign-out-alt" ] [])
+          then SS.formLink model.sessionState (Route.logoutUrl model.route) (i [class "fas", class "fa-sign-out-alt" ] [])
           else text ""
         ]
 
@@ -302,7 +285,7 @@ signinLink m =
       , p
         []
         [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
-        , SS.formLink m.sessionState (Route.loginUrl m.route m.weekpointer.query) (text "sign in")
+        , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
         , text " so we know who you are."
         ]
       ]
@@ -352,7 +335,7 @@ routeToView m =
                 , p
                   []
                   [ text "Before you can register a hostname you ned to "
-                  , SS.formLink m.sessionState (Route.loginUrl m.route m.weekpointer.query) (text "sign in")
+                  , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
                   , text " so we know who you are."
                   ]
                 ]
@@ -377,7 +360,7 @@ routeToView m =
                   , p
                     []
                     [ text "Your session is expired. You need to "
-                    , SS.formLink m.sessionState (Route.loginUrl m.route m.weekpointer.query) (text "sign in")
+                    , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
                     , text " again to continue."
                     ]
                   ]

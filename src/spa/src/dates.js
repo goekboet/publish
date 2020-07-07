@@ -1,20 +1,18 @@
 var getUnixTime = require('date-fns/getUnixTime')
 var setISOWeek = require('date-fns/setISOWeek')
-var getISOWeeksInYear = require('date-fns/getISOWeeksInYear')
 var startOfISOWeek = require('date-fns/startOfISOWeek')
 var endOfISOWeek = require('date-fns/endOfISOWeek')
-var getISOWeekYear = require('date-fns/getISOWeekYear')
 var getISOWeek = require('date-fns/getISOWeek')
 var format = require('date-fns/format')
-var fromUnixTime = require('date-fns/fromUnixTime')
-var getDay = require('date-fns/getDay')
 var setDay = require('date-fns/setDay')
 var setHours = require('date-fns/setHours')
 var setMinutes = require('date-fns/setMinutes')
 var startOfMinute = require('date-fns/startOfMinute')
 var addMinutes = require('date-fns/addMinutes')
 var getUnixTime = require('date-fns/getUnixTime')
-var add = require('date-fns/add')
+var setHours = require('date-fns/setHours')
+var setMinutes = require('date-fns/setMinutes')
+
 
 var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ]
 var toIndex = function (d) { 
@@ -27,53 +25,6 @@ var toIndex = function (d) {
 
 }
 
-function parseweek(s) {
-    var tokens = s === null ? [] : s.split('-');
-    // console.log(tokens);
-    if (tokens.length == 3) {
-        var y = parseInt(tokens[0], 10);
-        var w = parseInt(tokens[1], 10);
-        var d = tokens[2];
-        
-        if (isNaN(y) || isNaN(w))
-        {
-            // console.log("failed to parse year: " + y + " week " + w)
-            return null;
-        }
-
-        if (w < 1 && getISOWeeksInYear(new Date(y, 0)) > w)
-        {
-            // console.log("Reject week: " + w);
-            return null;
-        }
-
-        if (days.indexOf(d) == -1)
-        {
-            return null;
-        }
-
-        return { year: y, week: w, day: d };
-    }
-    else {
-        return null;
-    }
-}
-
-function toQuery(wptr) {
-    return wptr.year + '-' + wptr.week + '-' + wptr.day;
-}
-
-function zeroPad2w(s) {
-    return ("0" + s).slice(-2);
-}
-
-function toWeek(d) {
-    var y = getISOWeekYear(d);
-    var w = getISOWeek(d);
-
-    return y.toString().concat('-', zeroPad2w(w));
-}
-
 function parseTime(t) {
     var hhmm = t.split(':');
     var h = parseInt(hhmm[0], 10);
@@ -82,55 +33,49 @@ function parseTime(t) {
     return { h: h === null ? 0 : h, m: m === null ? 0 : m }
 }
 
-window.identifyTime = function (query, t) {
-    var d = new Date();
-    var wpt = parseweek(query);
-    if (wpt !== null) {
-        var year = new Date(wpt.year,0);
-        var week = setISOWeek(year, wpt.week);
-        d = setDay(week, toIndex(t.day), { weekStartsOn: 1 });
-    }
-    else {
-        d = new Date();
-    }
-
+window.identifyTime = function (startOfWeek, t) {
+    var d = new Date(startOfWeek * 1000)
+    var d2 = setDay(d, toIndex(t.day), { weekStartsOn: 1 });
     var hhmm = parseTime(t.start);
-    var hh = setHours(d, hhmm.h);
+    var hh = setHours(d2, hhmm.h);
     var mm = setMinutes(hh, hhmm.m)
     var start = startOfMinute(mm);
     var end = addMinutes(start, t.durMinutes);
- 
+   
     t.name = 
         format(start, 'HH:mm')
         + " - "
         + format(end, 'HH:mm');
     t.id = getUnixTime(start);
-    t.day = format(d, 'iii');
-    wpt.day = t.day
+    t.day = format(start, 'iii');
 
-    return [toQuery(wpt), t];
+    return t;
 }
 
-window.initWptrQuery = function initWptrQuery() {
-    return format(new Date(), 'yyyy-II-iii');
-}
-
-window.getWeekpointer = function getWeekpointer(query, offset) {
-    if (query === null) {
-        query = initWptrQuery()
+function toWeekpointer(d) {
+    return { 
+        name: format(d, "MMM dd, 'w.'II yyyy"),
+        day: format(d, 'iii'),
+        window: [ getUnixTime(startOfISOWeek(d)),
+                  getUnixTime(endOfISOWeek(d))
+                ]
     }
-    var wpt = parseweek(query);
-    var year = new Date(wpt.year,0);
-    var week = setISOWeek(year, wpt.week + offset);
-    var d = setDay(week, toIndex(wpt.day), { weekStartsOn: 1 });
+}
+
+window.initWptr = function initWptr() {
+    var d = new Date()
     
-    return {
-            name: format(d, "MMM dd, 'w.'II yyyy"),
-            day: format(d, 'iii'),
-            window: [ getUnixTime(startOfISOWeek(d)),
-                      getUnixTime(endOfISOWeek(d))],
-            query: format(d, 'yyyy-II-iii')
-        }
+    return toWeekpointer(d)
+}
+
+
+window.moveWptr = function moveWptr(offset, wptr) {
+    let d = new Date(wptr.window[0] * 1000)
+    let w = getISOWeek(d)
+    let d2 = setISOWeek(d, w + offset)
+    var d3 = setDay(d2, toIndex(wptr.day), { weekStartsOn: 1 });
+    
+    return toWeekpointer(d3)
 }
 
 function toTime(t) {

@@ -6,21 +6,21 @@ module Weekpointer exposing
     )
 
 import Route exposing (Route(..))
-import Html exposing (Html, div, text, span, button, h3, p )
-import Html.Attributes exposing (class, classList, id)
+import Html exposing (Html, div, text, span, button, h3, p, input )
+import Html.Attributes exposing (class, classList, id, type_, value)
 import Html.Events exposing (onClick)
 
 type alias Window = (Int, Int)
 
 type alias Model =
-    { name : String 
+    { name : String
+    , window : Window
     , day : String
-    , window: Window
-    , query: String
     }
 
 setDay : Model -> String -> Model
-setDay wp d = { wp | day = d } 
+setDay wp d = 
+    { wp | day = d }
 
 view : (String -> msg) -> msg -> msg -> msg -> Model -> Html msg
 view changeday pw cw nw wp =
@@ -32,19 +32,19 @@ view changeday pw cw nw wp =
     in
     div 
         [] 
-        [ span [ class "daystepper" ] 
-            [ button [ dayfocus "Mon", onClick (changeday "Mon" ) ] [ text "mon" ]
-            , button [ dayfocus "Tue", onClick (changeday "Tue" ) ] [ text "tue" ] 
-            , button [ dayfocus "Wed", onClick (changeday "Wed" ) ] [ text "wed" ] 
-            , button [ dayfocus "Thu", onClick (changeday "Thu" ) ] [ text "thu" ] 
-            , button [ dayfocus "Fri", onClick (changeday "Fri" ) ] [ text "fri" ] 
-            , button [ dayfocus "Sat", onClick (changeday "Sat" ) ] [ text "sat" ] 
-            , button [ dayfocus "Sun", onClick (changeday "Sun" ) ] [ text "sun" ] 
-            ]
-        , span  [ class "weekstepper" ] 
-            [ p [ ] [ text wp.name ] 
-            , button [ onClick pw ] [ text "previous" ]
-            , button [ onClick cw ] [ text "current" ]
-            , button [ onClick nw ] [ text "next" ]
-            ]
+        [ span [ class "weekstepper" ] 
+          [ h3 [] [ text wp.name ]
+          , button [ onClick pw ] [ text "previous" ]
+          , button [ onClick cw ] [ text "current" ]
+          , button [ onClick nw ] [ text "next" ]
+          ]
+        , span [ class "daystepper" ] 
+          [ button [ dayfocus "Mon", onClick (changeday "Mon" ) ] [ text "mon" ]
+          , button [ dayfocus "Tue", onClick (changeday "Tue" ) ] [ text "tue" ] 
+          , button [ dayfocus "Wed", onClick (changeday "Wed" ) ] [ text "wed" ] 
+          , button [ dayfocus "Thu", onClick (changeday "Thu" ) ] [ text "thu" ] 
+          , button [ dayfocus "Fri", onClick (changeday "Fri" ) ] [ text "fri" ] 
+          , button [ dayfocus "Sat", onClick (changeday "Sat" ) ] [ text "sat" ] 
+          , button [ dayfocus "Sun", onClick (changeday "Sun" ) ] [ text "sun" ] 
+          ]
         ]

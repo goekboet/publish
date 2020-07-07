@@ -3,6 +3,8 @@
 set -e
 DEST=${1:-dist}
 
+
+
 echo "Removing old app."
 [ -d $DEST ] && rm -r $DEST/*
 

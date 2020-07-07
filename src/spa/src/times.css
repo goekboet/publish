@@ -17,6 +17,16 @@
     width:4em;
 }
 
+.timeHeader {
+  display: flex;
+  align-items: center;
+  font-size: large;
+}
+
+.timeHeader > i {
+  padding-right: 0.5em;
+}
+
 .warning {
     padding: 1em 0 1em 0;
     display: flex;
