@@ -1,4 +1,6 @@
-let appelement = document.getElementById("app");
+import { initWptr, moveWptr, identifyTime, mapToTimes } from './dates.js'
+
+let appelement = document.getElementById("entrypoint");
 
 let flags = 
     { antiCsrf: appelement.getAttribute("data-anticsrf")
