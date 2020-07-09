@@ -23,8 +23,8 @@
   font-size: large;
 }
 
-.timeHeader > i {
-  padding-right: 0.5em;
+.timeHeader > h2 {
+  padding-left: 0.5em;
 }
 
 .warning {

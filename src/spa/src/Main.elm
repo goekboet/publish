@@ -14,6 +14,7 @@ import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
 import Json.Decode as Decode
 import Url.Builder exposing (absolute)
+import FontAwesome as FA
 
 port moveWeekpointer : (Int, WP.Model) -> Cmd a
 port gotWeekpointer : (WP.Model -> msg) -> Sub msg
@@ -226,7 +227,7 @@ homelink ss page =
             [ text "Publish" ]
           ]
         , if SS.isSignedIn ss
-          then SS.formLink ss (Maybe.withDefault HomePage page |> Page.logoutUrl ) (i [class "fas", class "fa-sign-out-alt" ] [])
+          then SS.formLink ss (Maybe.withDefault HomePage page |> Page.logoutUrl ) FA.fas_fa_sign_out_alt
           else text ""
         ]
 

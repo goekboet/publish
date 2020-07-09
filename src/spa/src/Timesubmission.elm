@@ -19,6 +19,7 @@ import Http exposing (Error)
 import Url.Builder exposing (absolute)
 import Json.Encode as Encode exposing (Value)
 import Json.Decode as Decode exposing (Decoder)
+import FontAwesome as FA
 
 port idTimeSubmission : (Int, Submission) -> Cmd a
 port timeSubmissionId : (Submission -> msg) -> Sub msg
@@ -498,7 +499,7 @@ timeView toAppMsg t =
           ]
     SubmissionErrored -> 
       li [] 
-          [ i [ class "fas", class "fa-exclamation-triangle" ] [] 
+          [ FA.fas_fa_exclamation_triangle 
           , p [] [ text t.name ]
           , button 
             [ class "heavy"
@@ -508,7 +509,7 @@ timeView toAppMsg t =
           ]
     Published -> 
       li [] 
-          [ i [ class "fas", class "fa-check-circle" ] [] 
+          [ FA.fas_fa_check_circle 
           , p [] [ text t.name ] 
           , button 
             [ class "heavy"
@@ -518,7 +519,7 @@ timeView toAppMsg t =
           ]
     Booked -> 
       li []
-          [ i [ class "fas", class "fa-user-circle" ] []
+          [ FA.fas_fa_user_circle
           , p [] [ text t.name ]
           , a [ class "heavy", href (appointmentLink t.id) ] [ text "go to booking" ]
           ]
@@ -528,7 +529,7 @@ listingErrorMsg toAppmsg l =
   case l of
       Faulty _ -> 
         div [ class "loadfailed" ] 
-          [ i [ class "fas", class "fa-exclamation-triangle" ] []
+          [ FA.fas_fa_exclamation_triangle
           , p [ ] 
             [ text "We failed to load your times. You can always " 
             , a [ onClick (toAppmsg ReloadTimelisting) ] [ text "try again" ]
@@ -582,15 +583,7 @@ view wrap day { submission, listing } =
       , if List.length conflicts > 0 then h3 [] [ text "Conflicting times." ] else text ""
       , ul [ class "timelisting" ] (List.map (timeView wrap) conflicts)
       , span [ class "timeHeader" ]
-        [ i 
-          [ Html.Events.onClick (wrap ReloadTimelisting)
-          , Attr.classList 
-            [ ("fas", True) 
-            , ("fa-sync-alt", True)
-            , ("rolls", rolls listing)
-            ]
-          ] 
-          []
+        [ FA.fas_fa_sync_alt_control (rolls listing) (wrap ReloadTimelisting)
         , h2 [] [ text "Published times:" ]
         ]
       , listingErrorMsg wrap listing
