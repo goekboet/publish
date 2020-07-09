@@ -168,8 +168,8 @@ update msg model =
 
     GotWeekpointer wptr -> 
       ( { model | weekpointer = wptr }
-      , case (model.page, model.hostnameSubmission) of
-        (Just PublishPage, HN.Submitted _) -> TS.listTimes TimesubmissionUpdate wptr.window
+      , case (model.page, HN.hasHostname model.hostnameSubmission) of
+        (Just PublishPage, Just _) -> TS.listTimes TimesubmissionUpdate wptr.window
         _ -> Cmd.none
       )
 

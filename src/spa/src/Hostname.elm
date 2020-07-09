@@ -1,5 +1,5 @@
 module Hostname exposing
-    ( Model(..)
+    ( Model
     , hasHostname
     , init
     , Msg(..)
