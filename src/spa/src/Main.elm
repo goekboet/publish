@@ -7,7 +7,7 @@ import Http exposing (Error)
 import Html.Attributes exposing (..)
 import Hostname as HN
 import Url exposing (Url)
-import Route exposing (Route(..), toRoute)
+import Page exposing (Page(..))
 import SessionState as SS
 import Weekpointer as WP
 import Timesubmission as TS
@@ -47,7 +47,7 @@ type alias Flags =
 
 type alias Model =
   { key : Nav.Key
-  , route : Route
+  , page : Maybe Page
   , sessionState : SS.Model
   , hostnameSubmission : HN.Model
   , weekpointer: WP.Model
@@ -58,27 +58,27 @@ init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
       times = TS.init flags.weekpointer.day
-      route = toRoute url
+      route = Page.fromUrl url
       sessionState = SS.init flags.username (Just flags.antiCsrf)
 
   in
   ( { key = key
-    , route = route
+    , page = route
     , sessionState = sessionState
     , hostnameSubmission = HN.init flags.hostName flags.hostHandle
     , weekpointer = flags.weekpointer
     , times = times
     }
   , case route of
-    HomeRoute      -> Cmd.none
-    BookingsRoute  -> Cmd.none
-    HostRoute      -> Cmd.none
-    PublishRoute _ -> 
+    Just HomePage      -> Cmd.none
+    Just BookingsPage  -> Cmd.none
+    Just HostPage      -> Cmd.none
+    Just PublishPage   -> 
       case flags.hostHandle of
       Just _ ->  TS.listTimes TimesubmissionUpdate flags.weekpointer.window
       _      -> Cmd.none 
-    Appointment _  -> Cmd.none
-    NotFound       -> Cmd.none
+    Just AppointmentPage -> Cmd.none
+    Nothing       -> Cmd.none
   )
  
 
@@ -119,11 +119,11 @@ update msg model =
 
     UrlChanged url ->
       let
-        nRoute = toRoute url
+        nRoute = Page.fromUrl url
       in
-        ( { model | route = nRoute }
+        ( { model | page = nRoute }
         , case nRoute of
-          PublishRoute _ -> Cmd.batch
+          Just PublishPage -> Cmd.batch
             [ TS.idTimeSubmission (Tuple.first model.weekpointer.window, model.times.submission)
             , TS.listTimes TimesubmissionUpdate model.weekpointer.window
             ]
@@ -167,8 +167,8 @@ update msg model =
 
     GotWeekpointer wptr -> 
       ( { model | weekpointer = wptr }
-      , case (model.route, model.hostnameSubmission) of
-        (PublishRoute _, HN.Submitted _) -> TS.listTimes TimesubmissionUpdate wptr.window
+      , case (model.page, model.hostnameSubmission) of
+        (Just PublishPage, HN.Submitted _) -> TS.listTimes TimesubmissionUpdate wptr.window
         _ -> Cmd.none
       )
 
@@ -213,175 +213,153 @@ subscriptions _ =
 
 -- VIEW
 
-notFoundText : Html Msg
-notFoundText = 
-  p [] 
-    [ text "This link is broken. Please report to the webmaster. There is not really much else you can do but "
-    , a [ Html.Attributes.href "/" ] [ text "go back to the beginning."
-    ]]
-
-notFoundView : Html Msg
-notFoundView =
-    div [ class "notFoundView" 
-      ] 
-      [ h2 [] [ text "Broken link" ]
-      , notFoundText ]
-
-
-
-bookingsLink : Model -> Html Msg
-bookingsLink m =
-    case HN.hasHostname m.hostnameSubmission of
-      Just _ -> 
-        a [ Html.Attributes.href "/bookings" 
-          ] 
-          [ h2 [] [ text "My bookings" ]
-          , p [] [ text "When you publish times and some user books it, it shows up here." ] 
-          ]
-      _ -> text ""
-
-publishOrAddHostLink : Model -> Html Msg
-publishOrAddHostLink m =
-  case (SS.isSignedIn m.sessionState, HN.hasHostname m.hostnameSubmission) of
-    (False, _)       -> text ""
-    (True, Just hn)  ->
-      a [ Html.Attributes.href (Route.routeToUrl (PublishRoute hn.handle) )
-        ]
-        [ h2 [] [ text "Publish times" ]
-        , p [] [ text ( "You're publishing times as " ++ hn.name ) ]
-        ]
-
-    (True, Nothing)  -> 
-      a [ Html.Attributes.href (Route.routeToUrl HostRoute) 
-        ]
-        [ h2 [] [ text "Register a hostname" ]
-        , p [] [ text "Before you can publish times you need to register a hostname." ]
-        ]
-
-homelink : Model -> Html msg
-homelink model =
+homelink : SS.Model -> Maybe Page -> Html msg
+homelink ss page =
     div [ class "content"
         , class "heavy" 
         , class "home"
         ] 
         [ h1 [] 
           [ a
-            [ href "/"
+            [ Page.toUrl HomePage |> href
             ]
             [ text "Publish" ]
           ]
-        , if SS.isSignedIn model.sessionState
-          then SS.formLink model.sessionState (Route.logoutUrl model.route) (i [class "fas", class "fa-sign-out-alt" ] [])
+        , if SS.isSignedIn ss
+          then SS.formLink ss (Maybe.withDefault HomePage page |> Page.logoutUrl ) (i [class "fas", class "fa-sign-out-alt" ] [])
           else text ""
         ]
 
-signinLink : Model -> List (Html msg)
-signinLink m =
-    if SS.isSignedIn m.sessionState
-    then 
-      [ text "" ]
-    else 
-      [ h2 [] [ text "Login required" ]
-      , p
-        []
-        [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
-        , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
-        , text " so we know who you are."
-        ]
+welcome : SS.Model -> List (Html msg)
+welcome ss = 
+ [ h2 [] [ text "Welcome" ]
+ , p
+   []
+   [ text "Publish lets you post times that people can book a videocall with you for. To keep your times apart from everyone elses you need to "
+   , SS.formLink ss (Page.loginUrl HomePage) (text "sign in")
+   , text " so we know who you are."
+   ]
+ ]
+
+registerHostname : List (Html msg)
+registerHostname =
+  [ h2 [] [ text "Register a hostname" ]
+  , p [] 
+    [ text "Before you can publish times you need a hostname. You can register one "
+    , a [ Page.toUrl HostPage |> href ] [ text "here." ]
+    ]
+  ]
+
+index : List (Html msg)
+index =
+  [ a [ HostPage |> Page.toUrl |> href
+      , class "indexLink"
       ]
+      [ h2 [] [ text "Host" ]
+      , p [] [ text "Review the host you're publishing times as." ]
+      ]
+  , a [ PublishPage |> Page.toUrl |> href
+      , class "indexLink"
+      ]
+      [ h2 [] [ text "Publish times" ]
+      , p [] [ text "Publish times folks can book." ]
+      ]
+  , a [ BookingsPage |> Page.toUrl |> href
+      , class "indexLink"
+      ]
+      [ h2 [] [ text "Bookings" ]
+      , p [] [ text "When folk book times you've published they show up here." ]
+      ]
+  ]
 
-routeToView : Model -> List (Html Msg)
-routeToView m =
-    case m.route of
-        NotFound ->
-            [ homelink m 
-            , div [ class "content", class "light" ] [notFoundView] 
-            ]
+sessionExpired : SS.Model -> Page -> List (Html msg)
+sessionExpired ss page =
+  [ h2 [] 
+    [ text "Session expired" ] 
+  , p [] 
+    [ text "You are no longer signed in. To continue your work here you need to "
+    , SS.formLink ss (Page.loginUrl page) (text "sign in")
+    , text " again."
+    ]
+  ]
 
-        HomeRoute ->
-            [ homelink m
-            , div [ class "content", class "light", class "homeLinklist" ] 
-            ( List.concat 
-                [ signinLink m
-                , [ bookingsLink m ]
-                , [ publishOrAddHostLink m ]
-                ]
-            )
-            ]
-        
-        BookingsRoute -> 
-          [ homelink m
-            , div 
-              [ class "content"
-              , class "light" 
-              ] 
-              [ h2 [] [ text "My bookings"] 
-              , p [] [ text "Any times booked by someone will show up here."]
-              , WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-              , bookingsView mockedbookings
-              ]
-          ]
+hostnameRequired : List (Html msg)
+hostnameRequired =
+  [ h2 []
+    [ text "Hostname required" ]
+  , p []
+    [ text "In order to do anything useful on this page you need to "
+    , a [ Page.toUrl HostPage |> href ] [ text "register a hostname." ]
+    ]
+  ]
 
-        HostRoute ->
-          [ homelink m
-          , div
-            [ class "content"
-            , class "light"
-            ]
-            ( if SS.isSignedIn m.sessionState
-              then HN.view HostSubmissionUpdate m.hostnameSubmission
-              else 
-                [ h2 [] [ text "Login required" ]
-                , p
-                  []
-                  [ text "Before you can register a hostname you ned to "
-                  , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
-                  , text " so we know who you are."
-                  ]
-                ]
-            )
-          ]
+brokenLinkView : List (Html msg)
+brokenLinkView =
+  [ h2 []
+    [ text "Broken link"]
+  , p []
+    [ text "The link you clicked is broken. You can always start over from "
+    , a [ Page.toUrl HomePage |> href ] [ text "start." ]
+    ]
+  ]
 
-        PublishRoute _ -> 
-          [ homelink m
-            , div 
-              [ class "content"
-              , class "light" 
-              ]
-              ( h2 [] [ text "Publish times."] 
-              :: p [] [ text "Each time you publish the form will reset to the next time leaving a specified pause. Any published time that has not been booked can be unpublished at any time. Any published time is browseable by the public."]
-              :: if SS.isSignedIn m.sessionState 
-                 then
-                   [ WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-                   , TS.view TimesubmissionUpdate m.weekpointer.day m.times
-                   ]
-                 else 
-                  [ h2 [] [ text "Login required" ]
-                  , p
-                    []
-                    [ text "Your session is expired. You need to "
-                    , SS.formLink m.sessionState (Route.loginUrl m.route) (text "sign in")
-                    , text " again to continue."
-                    ]
-                  ]
-              )
-          ]
+bookingsPage : Model -> List (Html Msg)
+bookingsPage m = 
+  [ h2 [] [ text "My bookings"] 
+  , p [] [ text "Any times booked by someone will show up here."]
+  , WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+  , bookingsView mockedbookings
+  ]
 
-        Route.Appointment _ ->
-          [ homelink m
-            , div 
-              [ class "content"
-              , class "light" 
-              ] 
-              [ h2 [] [ text "Appointment" ]
-              , p [] [ text "Somename has booked a time at 10:00" ]
-              , button [] [ text "Go to meeting" ]
-              ]
-          ]
+hostPage : Model -> List (Html Msg)
+hostPage m = HN.view HostSubmissionUpdate m.hostnameSubmission
+
+publishPage : Model -> List (Html Msg)
+publishPage m = 
+  [ h2 [] [ text "Publish times."] 
+  , p [] [ text "Each time you publish the form will reset to the next time leaving a specified pause. Any published time that has not been booked can be unpublished at any time. Any published time is browseable by the public."]
+  , WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
+  , TS.view TimesubmissionUpdate m.weekpointer.day m.times
+  ]
+
+appointmentPage : List (Html Msg)
+appointmentPage = 
+  [ h2 [] [ text "Appointment" ]
+  , p [] [ text "Somename has booked a time at 10:00" ]
+  , button [] [ text "Go to meeting" ]
+  ]
+
+pageView : Model -> List (Html Msg)
+pageView m =
+  case ( m.page, SS.isSignedIn m.sessionState, HN.hasHostname m.hostnameSubmission) of
+  (Just HomePage,        False, _       ) -> welcome m.sessionState
+  (Just HomePage,        True,  Nothing ) -> registerHostname
+  (Just HomePage,        True,  Just _  ) -> index
+  (Just BookingsPage,    False, _       ) -> sessionExpired m.sessionState BookingsPage
+  (Just BookingsPage,    True,  Nothing ) -> hostnameRequired
+  (Just BookingsPage,    True,  Just _  ) -> bookingsPage m
+  (Just HostPage,        False, _       ) -> sessionExpired m.sessionState HostPage
+  (Just HostPage,        True,  _       ) -> hostPage m
+  (Just PublishPage,     False, _       ) -> sessionExpired m.sessionState PublishPage
+  (Just PublishPage,     True,  Nothing ) -> hostnameRequired
+  (Just PublishPage,     True,  Just _  ) -> publishPage m
+  (Just AppointmentPage, False, _       ) -> sessionExpired m.sessionState AppointmentPage
+  (Just AppointmentPage, True,  Nothing ) -> hostnameRequired
+  (Just AppointmentPage, True,  Just _  ) -> appointmentPage
+  (Nothing,              _,     _       ) -> brokenLinkView
 
 view : Model -> Browser.Document Msg
 view model =
   { title = "Publish"
   , body =
-      [ div [ class "root-view" ] (routeToView model) ]
+      [ div 
+        [ class "root-view" ] 
+        [ homelink model.sessionState model.page
+        , div 
+          [ class "content"
+          , class "light" 
+          ] 
+          (pageView model) 
+        ] 
+      ]
   }

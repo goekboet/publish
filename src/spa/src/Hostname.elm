@@ -285,7 +285,7 @@ view toAppMsg m =
         , p [] 
           [ text ("You've registered " ++ hn.name ++ " as hostname. Go on and ")
           , a 
-            [ Html.Attributes.href ("/publish/" ++ hn.handle) ]
+            [ Html.Attributes.href "/publish" ]
             [ text "publish" ]
           , text " some times already."
           ] 

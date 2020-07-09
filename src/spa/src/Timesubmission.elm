@@ -19,7 +19,6 @@ import Http exposing (Error)
 import Url.Builder exposing (absolute)
 import Json.Encode as Encode exposing (Value)
 import Json.Decode as Decode exposing (Decoder)
-import Route exposing (Route(..))
 
 port idTimeSubmission : (Int, Submission) -> Cmd a
 port timeSubmissionId : (Submission -> msg) -> Sub msg

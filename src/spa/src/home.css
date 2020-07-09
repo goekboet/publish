@@ -11,7 +11,7 @@
     font-size: 2em;
 }
 
-.homeLinklist > a {
+.indexLink {
     display: inline-block;
     font-weight: normal;
     padding-bottom: 1em;

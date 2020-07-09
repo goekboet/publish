@@ -5,7 +5,6 @@ module Weekpointer exposing
     , view
     )
 
-import Route exposing (Route(..))
 import Html exposing (Html, div, text, span, button, h3, p, input )
 import Html.Attributes exposing (class, classList, id, type_, value)
 import Html.Events exposing (onClick)
