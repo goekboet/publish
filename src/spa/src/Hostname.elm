@@ -7,7 +7,7 @@ module Hostname exposing
     , view
     )
 
-import Html exposing (..)
+import Html exposing ( Html, div, label, text, span, input, h2, h3, p, button, b, a )
 import Json.Encode as Encode exposing (Value)
 import Json.Decode as Decode exposing (Decoder)
 import Html.Attributes exposing (for, type_, name, class, classList, disabled)

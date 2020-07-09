@@ -13,8 +13,7 @@ module FontAwesome exposing
 
 import Html exposing (Html, i) 
 import Html.Events exposing ( onClick )
-import Html.Attributes exposing (classList)
-import Html.Attributes exposing (class)
+import Html.Attributes exposing ( class, classList)
 
 fas_fa_chevron_circle_down : Html msg
 fas_fa_chevron_circle_down = i [ class "fas", class "fa-chevron-circle-down"] []

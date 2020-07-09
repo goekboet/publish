@@ -2,9 +2,9 @@ port module Main exposing (main)
 
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
-import Html exposing (..)
+import Html exposing ( Html, div, h1, h2, text, p, a, button)
 import Http exposing (Error)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (class, href)
 import Hostname as HN
 import Url exposing (Url)
 import Page exposing (Page(..))
@@ -192,7 +192,7 @@ update msg model =
         }
       , Cmd.none)
 
-    GotNewAnticsrf (Err e) ->
+    GotNewAnticsrf (Err _) ->
       ( model, Cmd.none )
 
     

@@ -5,8 +5,8 @@ module Weekpointer exposing
     , view
     )
 
-import Html exposing (Html, div, text, span, button, h3, p, input )
-import Html.Attributes exposing (class, classList, id, type_, value)
+import Html exposing (Html, div, text, span, button, h3)
+import Html.Attributes exposing (class, classList)
 import Html.Events exposing (onClick)
 
 type alias Window = (Int, Int)

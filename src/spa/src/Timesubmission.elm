@@ -13,7 +13,7 @@ port module Timesubmission exposing
     )
 
 import Html exposing (Html, span, p, input, button, text, li, ul, a, div, h3, h2, i)
-import Html.Attributes as Attr exposing (class, type_, min, max, value, step, id, href )
+import Html.Attributes as Attr exposing (class, type_, min, max, value, step, href )
 import Html.Events exposing (onInput, onClick)
 import Http exposing (Error)
 import Url.Builder exposing (absolute)
@@ -56,14 +56,6 @@ type TimeSubmissionStatus =
   | Published
   | Booked
 
-encodeTimeSubmissionStatus : TimeSubmissionStatus -> Value
-encodeTimeSubmissionStatus ts =
-  case ts of
-    SubmissionPending -> Encode.string "SubmissionPending"
-    SubmissionErrored -> Encode.string "SubmissionErrored"
-    Published -> Encode.string "Published"
-    Booked -> Encode.string "Booked"
-
 decodeSubmissionStatus : String -> Decoder TimeSubmissionStatus
 decodeSubmissionStatus s =
   case s of
@@ -81,19 +73,6 @@ type alias Time =
     , name: String
     , status: TimeSubmissionStatus
     }
-
-
-  
-
-encodeTime : Time -> Value
-encodeTime t =
-  Encode.object
-    [ ("id", Encode.int t.id) 
-    , ("start", Encode.string t.start)
-    , ("end", Encode.int t.end)
-    , ("name", Encode.string t.name)
-    , ("status", encodeTimeSubmissionStatus t.status)
-    ]
 
 decodeTime : Decoder Time
 decodeTime =
@@ -429,7 +408,7 @@ update toAppMsg window msg model =
           , Cmd.none
           )
 
-        TimeListingFormatted (Err e) ->
+        TimeListingFormatted (Err _) ->
           Just
           ( { model | listing = faultyTimesCall model.listing }
           , Cmd.none
