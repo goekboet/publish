@@ -1,0 +1,110 @@
+.weekpointer {
+    display: flex;
+    align-items: baseline;
+}
+
+.weekpointer > h3 {
+    flex-grow: 1;
+}
+
+.weekpointer > button {
+    border: none;
+    background: none;
+    font-size: large;
+}
+
+.daypointer {
+    display: flex;
+    justify-content: space-between;
+}
+
+.daypointer > button {
+    border:none;
+    background: none;
+    font-weight: bold;
+    border-radius: 0;
+    margin: 0;
+}
+
+.daypointer > button.selectedDay {
+    border-bottom: solid;
+}
+
+.timepointer > input[type=text] {
+    width: unset;
+    border:none;
+    background:none;
+    border-bottom: solid;
+    border-radius: 0;
+    border-width: thin;
+}
+
+.timepointer > input[type=text]::placeholder {
+    color: inherit;
+    opacity: 1;
+}
+
+.stagedTime {
+    display: flex;
+    align-items: baseline;
+}
+
+.stagedTime > button {
+    border: none;
+    background: none;
+}
+
+.stagedTime > i {
+    padding-right: 0.5em;
+}
+
+.stagedTime > p {
+    flex-grow: 1;
+}
+
+.timepublishData > ul > li {
+    display: flex;
+    margin-bottom: 0.5em;
+    align-items: baseline;
+}
+
+.timepublishData > ul > li > p {
+    flex-grow: 1;
+    padding: 0 0 0 0.5em;
+}
+
+.timepublishData > ul > li > button {
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
+}
+
+.timepublishData > span {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 1em;
+    border-bottom: solid;
+    border-width: thin;
+}
+
+.timepublishData > span > h3 {
+    margin-left: 0.5em;
+    padding: 0;
+}
+
+.timepublishData > span > button {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+}
+
+.conflictingTimes {
+    display:flex;
+    align-items: baseline;
+}
+
+.conflictingTimes > b {
+    padding-left: 0.5em;
+}

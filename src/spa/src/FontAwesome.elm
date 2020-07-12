@@ -9,7 +9,10 @@ module FontAwesome exposing
     , fas_fa_sign_out_alt
     , fas_fa_exclamation_triangle
     , fas_fa_user_circle
-    , fas_fa_sync_alt_control)
+    , fas_fa_sync_alt_control
+    , fas_minus_circle
+    , fas_fa_sync_alt_rolls
+    , fas_fa_sync_alt)
 
 import Html exposing (Html, i) 
 import Html.Events exposing ( onClick )
@@ -45,6 +48,9 @@ fas_fa_exclamation_triangle = i [ class "fas", class "fa-exclamation-triangle" ]
 fas_fa_user_circle : Html msg
 fas_fa_user_circle = i [ class "fas", class "fa-user-circle" ] []
 
+fas_minus_circle : Html msg
+fas_minus_circle = i [ class "fas", class "fa-minus-circle" ] []
+
 fas_fa_sync_alt_control : Bool -> msg -> Html msg
 fas_fa_sync_alt_control syncing trigger = 
     i 
@@ -56,3 +62,9 @@ fas_fa_sync_alt_control syncing trigger =
             ]
           ] 
           []
+
+fas_fa_sync_alt_rolls : Html msg
+fas_fa_sync_alt_rolls = i [ class "fas fa-sync-alt rolls"] []
+fas_fa_sync_alt : Html msg
+fas_fa_sync_alt = i [ class "fas fa-sync-alt"] []
+  

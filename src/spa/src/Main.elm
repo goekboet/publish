@@ -1,4 +1,4 @@
-port module Main exposing (main)
+module Main exposing (main)
 
 import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
@@ -9,16 +9,13 @@ import Hostname as HN
 import Url exposing (Url)
 import Page exposing (Page(..))
 import SessionState as SS
-import Weekpointer as WP
 import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
 import Json.Decode as Decode
 import Url.Builder exposing (absolute)
 import FontAwesome as FA
-
-port moveWeekpointer : (Int, WP.Model) -> Cmd a
-port gotWeekpointer : (WP.Model -> msg) -> Sub msg
-
+import TSLookup as TimeStamp
+import Publish
 
 -- MAIN
 
@@ -43,7 +40,7 @@ type alias Flags =
   , username: Maybe SS.Username
   , hostName: Maybe String
   , hostHandle: Maybe String
-  , weekpointer: WP.Model
+  , tsLookup: TimeStamp.TsLookup
   }
 
 type alias Model =
@@ -51,14 +48,14 @@ type alias Model =
   , page : Maybe Page
   , sessionState : SS.Model
   , hostnameSubmission : HN.Model
-  , weekpointer: WP.Model
+  , publish : Publish.Model
   , times : TS.Model
   }
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
-      times = TS.init flags.weekpointer.day
+      times = TS.init "fri"
       route = Page.fromUrl url
       sessionState = SS.init flags.username (Just flags.antiCsrf)
 
@@ -67,7 +64,7 @@ init flags url key =
     , page = route
     , sessionState = sessionState
     , hostnameSubmission = HN.init flags.hostName flags.hostHandle
-    , weekpointer = flags.weekpointer
+    , publish = Publish.init flags.tsLookup
     , times = times
     }
   , case route of
@@ -76,7 +73,7 @@ init flags url key =
     Just HostPage      -> Cmd.none
     Just PublishPage   -> 
       case flags.hostHandle of
-      Just _ ->  TS.listTimes TimesubmissionUpdate flags.weekpointer.window
+      Just _ ->  TS.listTimes TimesubmissionUpdate (0,0)
       _      -> Cmd.none 
     Just AppointmentPage -> Cmd.none
     Nothing       -> Cmd.none
@@ -90,13 +87,9 @@ type Msg
   = LinkClicked UrlRequest
   | UrlChanged Url
   | HostSubmissionUpdate HN.Msg
-  | DayfocusChanged String
-  | PrevWeekpointer
-  | CurrWeekpointer
-  | NextWeekpointer
-  | GotWeekpointer WP.Model
   | TimesubmissionUpdate TS.Msg
   | GotNewAnticsrf (Result Error String)
+  | PublishMessage Publish.Msg
   
 
 getNewAntiscrf : Cmd Msg
@@ -124,10 +117,7 @@ update msg model =
       in
         ( { model | page = nRoute }
         , case nRoute of
-          Just PublishPage -> Cmd.batch
-            [ TS.idTimeSubmission (Tuple.first model.weekpointer.window, model.times.submission)
-            , TS.listTimes TimesubmissionUpdate model.weekpointer.window
-            ]
+          Just PublishPage -> Cmd.none
           _ -> Cmd.none
         )
     
@@ -148,43 +138,9 @@ update msg model =
               , getNewAntiscrf
               )
 
-    DayfocusChanged d ->
-      let
-          newTimes = TS.setDay d model.times
-      in
-      
-      ( { model 
-        | times = newTimes
-        , weekpointer = WP.setDay model.weekpointer d
-        }
-      , TS.idTimeSubmission (Tuple.first model.weekpointer.window, newTimes.submission)
-      ) 
-    
-    PrevWeekpointer -> (model, moveWeekpointer (-1, model.weekpointer) )
-
-    CurrWeekpointer -> (model, moveWeekpointer ( 0, model.weekpointer) )
-
-    NextWeekpointer -> (model, moveWeekpointer ( 1, model.weekpointer) )
-
-    GotWeekpointer wptr -> 
-      ( { model | weekpointer = wptr }
-      , case (model.page, HN.hasHostname model.hostnameSubmission) of
-        (Just PublishPage, Just _) -> TS.listTimes TimesubmissionUpdate wptr.window
-        _ -> Cmd.none
-      )
 
     TimesubmissionUpdate ts -> 
-      let
-          r = TS.update TimesubmissionUpdate model.weekpointer.window ts model.times
-      in
-        case r of
-        Just (m, cmd) -> ( { model | times = m }, cmd )
-        Nothing -> 
-          ( { model 
-            | sessionState = SS.sessionEnded 
-            }
-          , getNewAntiscrf
-          )
+      (model, Cmd.none)
 
     GotNewAnticsrf (Ok t) ->
       ( { model 
@@ -194,6 +150,14 @@ update msg model =
 
     GotNewAnticsrf (Err _) ->
       ( model, Cmd.none )
+
+    PublishMessage message ->
+      let
+          (pubModel, cmd) = Publish.update model.publish message
+      in
+        ( { model | publish = pubModel}
+        , cmd
+        )
 
     
 
@@ -205,8 +169,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
   Sub.batch
-    [ gotWeekpointer GotWeekpointer
-    , TS.timeSubmissionId (TimesubmissionUpdate << TS.TimeSubmissionIdentified)
+    [ Publish.subscribe PublishMessage
     , TS.timelistingFormatted (TimesubmissionUpdate << TS.TimeListingFormatted << Decode.decodeValue TS.decodeTimes)
     ]
 
@@ -308,7 +271,6 @@ bookingsPage : Model -> List (Html Msg)
 bookingsPage m = 
   [ h2 [] [ text "My bookings"] 
   , p [] [ text "Any times booked by someone will show up here."]
-  , WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
   , bookingsView mockedbookings
   ]
 
@@ -316,12 +278,7 @@ hostPage : Model -> List (Html Msg)
 hostPage m = HN.view HostSubmissionUpdate m.hostnameSubmission
 
 publishPage : Model -> List (Html Msg)
-publishPage m = 
-  [ h2 [] [ text "Publish times."] 
-  , p [] [ text "Each time you publish the form will reset to the next time leaving a specified pause. Any published time that has not been booked can be unpublished at any time. Any published time is browseable by the public."]
-  , WP.view DayfocusChanged PrevWeekpointer CurrWeekpointer NextWeekpointer m.weekpointer
-  , TS.view TimesubmissionUpdate m.weekpointer.day m.times
-  ]
+publishPage m = Publish.view PublishMessage m.publish
 
 appointmentPage : List (Html Msg)
 appointmentPage = 
