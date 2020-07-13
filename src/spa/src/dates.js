@@ -12,22 +12,6 @@ import endOfISOWeek from 'date-fns/endOfISOWeek'
 import eachDayOfInterval from 'date-fns/eachDayOfInterval'
 import isToday from 'date-fns/isToday'
 
-let toTime = (t) => {
-    var d = new Date(parseInt(t.start) * 1000);
-    var end = new Date(parseInt(t.end) * 1000);
-    
-    return {
-        id: t.start,
-        start: format(d, 'HH:mm'),
-        day: format(d, 'iii'),
-        end: parseInt(t.end),
-        name: format(d, 'HH:mm') + ' - ' + format(end, 'HH:mm'),
-        status: t.booked ? "Booked" : "Published"
-    }
-}
-
-let mapToTimes = (ts) => ts.map(toTime);
-
 let week = d => {
     let w = getISOWeek(d)
     let curr = startOfISOWeek(d)
@@ -71,7 +55,8 @@ let days = d => {
             return { 
                 key: format(x, 'iii'), 
                 name: format(x, 'MMM dd'),
-                ts: getUnixTime(x),
+                start: getUnixTime(x),
+                end: getUnixTime(endOfDay(x)),
                 isNow: isToday(x),
                 hours: hours(x)
             } 
@@ -90,4 +75,4 @@ let tsLookup = ts => {
     }
 }
 
-export { mapToTimes, tsLookup }
+export { tsLookup }

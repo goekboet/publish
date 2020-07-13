@@ -1,24 +1,50 @@
 .weekpointer {
     display: flex;
+    flex-direction: column;
+    margin-bottom: 1em;
+}
+
+.weekpointer h4 {
+    margin:0;
+    padding: 0;
+    font-weight: normal;
+    border-bottom: solid;
+    border-width: thin;
+}
+
+.weekpointer > span {
+    display: flex;
     align-items: baseline;
 }
 
-.weekpointer > h3 {
-    flex-grow: 1;
-}
-
-.weekpointer > button {
+.weekpointer button {
     border: none;
     background: none;
     font-size: large;
+    padding: 0.5em;
+    margin: 0 0.5em 0 0;
 }
 
 .daypointer {
     display: flex;
+    flex-direction: column;
+    margin-bottom: 1em;
+}
+
+.daypointer h4 {
+    padding: 0;
+    margin: 0;
+    font-weight: normal;
+    border-bottom: solid;
+    border-width: thin;
+}
+
+.daypointer span {
+    display: flex;
     justify-content: space-between;
 }
 
-.daypointer > button {
+.daypointer button {
     border:none;
     background: none;
     font-weight: bold;
@@ -26,11 +52,33 @@
     margin: 0;
 }
 
-.daypointer > button.selectedDay {
+.daypointer button.selectedDay {
     border-bottom: solid;
 }
 
-.timepointer > input[type=text] {
+.timepointer {
+    display: flex;
+    margin-bottom: 1em;
+    flex-direction: column;
+}
+
+.timepointer h4 {
+    padding: 0;
+    margin: 0;
+    font-weight: normal;
+    border-bottom: solid;
+    border-width: thin;
+}
+
+.timepointer span {
+    margin-top: 0.5em;
+}
+
+.timepointer span > span {
+    margin-right: 1em;
+}
+
+.timepointer input[type=text] {
     width: unset;
     border:none;
     background:none;
@@ -39,26 +87,55 @@
     border-width: thin;
 }
 
-.timepointer > input[type=text]::placeholder {
+.timepointer input[type=text]::placeholder {
     color: inherit;
     opacity: 1;
 }
 
+.timepointer label {
+    font-size: medium;
+    font-weight: bold;
+}
+
 .stagedTime {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1em;
+}
+
+.stagedTime h4 {
+    padding: 0;
+    margin: 0;
+    font-weight: normal;
+    border-bottom: solid;
+    border-width: thin;   
+}
+
+.stagedTime p {
+    padding: 0;
+}
+
+.stagedTime > span {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.5em;
+}
+
+.stagedTime > span > span {
     display: flex;
     align-items: baseline;
 }
 
-.stagedTime > button {
+.stagedTime > span > span > button {
     border: none;
     background: none;
 }
 
-.stagedTime > i {
+.stagedTime > span > span > i {
     padding-right: 0.5em;
 }
 
-.stagedTime > p {
+.stagedTime > span > span:nth-child(1) > p {
     flex-grow: 1;
 }
 
@@ -83,7 +160,7 @@
 .timepublishData > span {
     display: flex;
     align-items: baseline;
-    margin-bottom: 1em;
+    margin-bottom: 0.5em;
     border-bottom: solid;
     border-width: thin;
 }

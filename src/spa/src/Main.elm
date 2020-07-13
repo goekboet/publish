@@ -9,12 +9,9 @@ import Hostname as HN
 import Url exposing (Url)
 import Page exposing (Page(..))
 import SessionState as SS
-import Timesubmission as TS
 import Bookings exposing (bookingsView, mockedbookings)
-import Json.Decode as Decode
 import Url.Builder exposing (absolute)
 import FontAwesome as FA
-import TSLookup as TimeStamp
 import Publish
 
 -- MAIN
@@ -40,7 +37,7 @@ type alias Flags =
   , username: Maybe SS.Username
   , hostName: Maybe String
   , hostHandle: Maybe String
-  , tsLookup: TimeStamp.TsLookup
+  , tsLookup: Publish.TsLookup
   }
 
 type alias Model =
@@ -49,32 +46,35 @@ type alias Model =
   , sessionState : SS.Model
   , hostnameSubmission : HN.Model
   , publish : Publish.Model
-  , times : TS.Model
   }
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
-      times = TS.init "fri"
       route = Page.fromUrl url
+
+      fetchTimes = 
+        case (route, flags.hostHandle) of
+        (Just Page.PublishPage, Just _ ) -> True
+        _                                -> False
       sessionState = SS.init flags.username (Just flags.antiCsrf)
 
+      publishModel = Publish.init flags.tsLookup fetchTimes
   in
   ( { key = key
     , page = route
     , sessionState = sessionState
     , hostnameSubmission = HN.init flags.hostName flags.hostHandle
-    , publish = Publish.init flags.tsLookup
-    , times = times
+    , publish = publishModel
     }
   , case route of
     Just HomePage      -> Cmd.none
     Just BookingsPage  -> Cmd.none
     Just HostPage      -> Cmd.none
     Just PublishPage   -> 
-      case flags.hostHandle of
-      Just _ ->  TS.listTimes TimesubmissionUpdate (0,0)
-      _      -> Cmd.none 
+      if fetchTimes
+      then Publish.listTimes PublishMessage publishModel.weekpointer
+      else Cmd.none 
     Just AppointmentPage -> Cmd.none
     Nothing       -> Cmd.none
   )
@@ -87,7 +87,6 @@ type Msg
   = LinkClicked UrlRequest
   | UrlChanged Url
   | HostSubmissionUpdate HN.Msg
-  | TimesubmissionUpdate TS.Msg
   | GotNewAnticsrf (Result Error String)
   | PublishMessage Publish.Msg
   
@@ -138,10 +137,6 @@ update msg model =
               , getNewAntiscrf
               )
 
-
-    TimesubmissionUpdate ts -> 
-      (model, Cmd.none)
-
     GotNewAnticsrf (Ok t) ->
       ( { model 
         | sessionState = SS.antiCsrfRefreshed model.sessionState t
@@ -153,7 +148,7 @@ update msg model =
 
     PublishMessage message ->
       let
-          (pubModel, cmd) = Publish.update model.publish message
+          (pubModel, cmd) = Publish.update model.publish message PublishMessage
       in
         ( { model | publish = pubModel}
         , cmd
@@ -170,7 +165,6 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
   Sub.batch
     [ Publish.subscribe PublishMessage
-    , TS.timelistingFormatted (TimesubmissionUpdate << TS.TimeListingFormatted << Decode.decodeValue TS.decodeTimes)
     ]
 
 

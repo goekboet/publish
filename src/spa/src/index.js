@@ -15,8 +15,3 @@ let app = Elm.Main.init({ flags: flags });
 app.ports.moveWeekpointer.subscribe(ts => {
     app.ports.newWeekpointer.send(tsLookup(ts))
 })
-
-// app.ports.formatTimeListing.subscribe(ts => {
-//     var ft = mapToTimes(ts);
-//     app.ports.timelistingFormatted.send(ft);
-// })
