@@ -14,6 +14,6 @@ RUN npm install
 COPY . .
 RUN ./build.sh
 
-CMD rm -r ./pub/* 2>/dev/null && cp ./build/* ./pub 
+CMD rm -r ./pub/* 2>/dev/null ; cp ./dist/* ./pub
 
 
