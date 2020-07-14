@@ -14,6 +14,7 @@ import Html.Attributes exposing (for, type_, name, class, classList, disabled)
 import Html.Events exposing (onInput)
 import Http exposing (Error)
 import Url.Builder as UrlB
+import FontAwesome as FA
 
 type ValidationError = BadLength | InvalidChars
 type Input = Input (List ValidationError) String 
@@ -200,57 +201,65 @@ nameDescription = String.join " "
     , "When people browse for services this is what they scroll through."
     ]
 
-handleInputView : (String -> msg) -> HostnameForm -> Html msg
+handleInputView : (String -> msg) -> HostnameForm -> List (Html msg)
 handleInputView valuechanged hf =
     let
-        pass i e = 
+        pass i e t = 
             if hasError i e 
-            then classList [("pass", False)] 
-            else classList [("pass", True) ]  
+            then Html.li [] [ FA.fas_fa_exclamation_circle, text t ] 
+            else Html.li [ class "pass" ] [ FA.far_fa_check_circle, text t ]  
     in
-        div [ class "forminput" ] 
-            [ label [ for "handle" ] [ text "handle:" ]
-            , input [ type_ "text", name "handle", onInput valuechanged ] [] 
-            , span [ pass hf.handle BadLength ] [ text "The handle needs to be between 2 and 64 characters long." ]
-            , span [ pass hf.handle InvalidChars ] [ text "Allowed characters in the handle are lower-case characters, digits, _ and -." ]
-            ]
+        [ Html.span [] 
+          [ label [] [ text "handle:" ]
+          , input [ type_ "text", name "handle", onInput valuechanged ] []
+          ]
+        , Html.ul []
+          [ pass hf.handle BadLength "Needs to be between 2 and 64 characters long." 
+          , pass hf.handle InvalidChars "Allowed characters are lower-case characters, digits, _ and -." 
+          ] 
+        ]
 
-nameInputView : (String -> msg) -> HostnameForm -> Html msg
+nameInputView : (String -> msg) -> HostnameForm -> List (Html msg)
 nameInputView valuechanged hf =
     let
-        pass i e = 
+        pass i e t = 
             if hasError i e 
-            then classList [("pass", False)] 
-            else classList [("pass", True) ] 
+            then Html.li [] [ FA.fas_fa_exclamation_circle, text t ] 
+            else Html.li [ class "pass" ] [ FA.far_fa_check_circle, text t ]  
     in
-        div [ class "forminput" ] 
-        [ label [ for "name" ] [ text "name:" ]
-        , input [ type_ "text", name "name", onInput valuechanged ] [] 
-        , span [ pass hf.name BadLength ] [ text "The name needs to be between 2 and 128 characters long." ]
+        [ Html.span [] 
+          [ label [ ] [ text "name:" ]
+          , input [ type_ "text", onInput valuechanged ] []
+          ] 
+        , Html.ul [] 
+          [ pass hf.name BadLength "Needs to be between 2 and 128 characters long." ]
         ]
 
 submitButton : msg -> HostnameForm -> Bool -> Html msg
 submitButton submit hf submitting =
     case (submitting, isValidHostnameForm hf) of
-    (True, _) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submitting" ]]
-    (_, True) -> div [class "formbuttons"] [button [ Html.Events.onClick submit ] [ text "Submit" ]]
-    (_, False) -> div [class "formbuttons"] [button [ disabled True ] [ text "Submit" ]]
+    (True, _) -> button [ class "hostname-button", disabled True ] [ text "Submitting" ]
+    (_, True) -> button [ class "hostname-button", Html.Events.onClick submit ] [ text "Submit" ]
+    (_, False) -> button [ class "hostname-button", disabled True ] [ text "Submit" ]
 
 errorView : Error -> Html msg    
 errorView _ =
     p [ class "hostnameSubmissionFail" ] [ text "For some reason we could not register your submission. You're welcome to try again."]
 
-hostnameForm : (String -> msg) -> (String -> msg) -> msg -> HostnameForm -> Bool -> Html msg
-hostnameForm namechange handlechange submit hf submitting = Html.div 
-    [ ]
-    [ h2 [] [ text "Submit a hostname"]
+hostnameForm : (String -> msg) -> (String -> msg) -> msg -> HostnameForm -> Bool -> List (Html msg)
+hostnameForm namechange handlechange submit hf submitting = 
+    [ h2 [] [ text "Submit a hostname" ]
     , p [] [ text hostDescription]
-    , h3 [] [ b [] [text "Handle"] ]
-    , p [] [ text handleDescription ]
-    , handleInputView handlechange hf
-    , h3 [] [ b [] [text "Name"] ]
-    , p [] [ text nameDescription ]
-    , nameInputView namechange hf
+    , Html.span [ class "hostname-input" ]
+      ( h3 [] [ b [] [text "Handle"] ]
+      :: p [] [ text handleDescription ]
+      :: handleInputView handlechange hf )
+    , Html.hr [ ] []
+    , Html.span [ class "hostname-input" ]
+      ( h3 [] [ b [] [text "Name"] ]
+      :: p [] [ text nameDescription ]
+      :: nameInputView namechange hf )
+    , Html.hr [ ] []
     , Maybe.map errorView hf.failed |> Maybe.withDefault (text "")
     , submitButton submit hf submitting
     ]
@@ -277,9 +286,9 @@ addHost response hf =
 view : (Msg -> msg) -> Model -> List (Html msg)
 view toAppMsg m =
     case m of
-      Unsubmitted hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False ]
-      Submitting hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf True ]
-      FailedSubmit hnf -> [ hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False ]
+      Unsubmitted hnf -> hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False
+      Submitting hnf -> hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf True
+      FailedSubmit hnf -> hostnameForm (toAppMsg << NameValueChanged) (toAppMsg << HandleValueChanged) (toAppMsg SubmitHost) hnf False
       Submitted hn -> 
         [ h2 [] [ text "Hostname" ]
         , p [] 

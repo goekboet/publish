@@ -12,12 +12,24 @@
 }
 
 .indexLink {
-    display: inline-block;
-    font-weight: normal;
-    padding-bottom: 1em;
-    width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
-.homeLinklist > a:last-child {
-    padding-bottom: 0;
+.indexLink a {
+    font-weight: normal;
+    margin-bottom: 1em;
+    border: solid;
+    border-width: thin;
+    border-radius: 5px;
+    padding: 0.5em;
 }
+
+.indexLink p {
+    margin:0;
+}
+
+.indexLink h3 {
+    margin-bottom: 1em;
+}
+

@@ -506,7 +506,7 @@ weekPointerControls toMsg { current, previous, next } =
       , Html.button 
         [ Event.onClick (next.ts |> Just |> toMsg) ] 
         [ FA.fas_fa_arrow_alt_circle_right ]
-      , Html.p [] [ Html.text current.name ]
+      , Html.label [] [ Html.text current.name ]
       ]
     ]
 
@@ -595,7 +595,7 @@ stagedTimeControl adv timepointer data =
         , Html.span []
           [ Html.span []  
             [ FA.far_fa_check_circle 
-            , Html.p [] [ Html.text t.name ]
+            , Html.label [] [ Html.text t.name ]
             , Html.button 
               [ adv False |> Event.onClick ]
               [ Html.text "skip" ]
@@ -616,18 +616,18 @@ timePayloadView toAppMsg (status, t) =
     case status of
     Submitted -> 
         [ FA.fas_fa_check_circle 
-        , Html.p [] [ Html.text t.name ]
+        , Html.label [] [ Html.text t.name ]
         , Html.button 
           [ Event.onClick (Unpublish t.start |> toAppMsg)] 
           [ Html.text "unpublish" ]
         ]
     Pending ->   
         [ FA.fas_fa_sync_alt_rolls
-        , Html.p [] [ Html.text t.name ] 
+        , Html.label [] [ Html.text t.name ] 
         ]
     Errored ->  
         [ FA.fas_fa_exclamation_triangle
-        , Html.p [] [ Html.text ("Submission failed for " ++ t.name) ]
+        , Html.label [] [ Html.text ("Submission failed for " ++ t.name) ]
         , Html.button 
           [ Event.onClick (DismissError t.start |> toAppMsg)] 
           [ Html.text "dismiss" ]

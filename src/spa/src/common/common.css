@@ -1,0 +1,94 @@
+html, body, div, span, h1, h2, h3, h4, p, i, b, a, ul, li, label, input, button {
+    margin: 0;
+    padding: 0;
+}
+
+h2, p {
+    margin-bottom: 1em;
+}
+
+body {
+    line-height: 1.4;
+}
+
+ul {
+    list-style: none;
+}
+
+a {
+  text-decoration: none;
+  font-weight: bold;
+  color: inherit;
+}
+  
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+label {
+    white-space: nowrap;
+}
+
+input[type=text] {
+    background: none;
+    color: inherit;
+    border: none;
+    font-size: inherit;
+    width:100%;
+}
+
+input[type=text]::placeholder {
+    color: inherit;
+    opacity: 1;
+}
+
+.formlink {
+    display: inline;
+    font-weight: bold;
+}
+
+.root-view {
+    background-color: gainsboro;
+    height: 100vh;
+    width: 100vw;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    font-family: sans-serif;
+} 
+
+@media screen and (min-width: 600px) {
+    .root-view {
+        width: 550px;
+    }    
+}
+
+.content {
+  padding: 1em;
+}
+
+.app-view {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+hr {
+  border: none;
+  margin: 0.5em 0 0.5em 0;
+}
+
+hr.line {
+  border-bottom: solid;
+  border-width: thin;
+}

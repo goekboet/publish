@@ -210,24 +210,21 @@ registerHostname =
 
 index : List (Html msg)
 index =
-  [ a [ HostPage |> Page.toUrl |> href
-      , class "indexLink"
+  [ Html.h2 [] [ text "Welcome" ]
+  , Html.span [ class "indexLink" ]
+    [ a [ HostPage |> Page.toUrl |> href ]
+      [ Html.h3 [] [ text "Host" ]
+      , Html.p [] [ text "Review the host you're publishing times as." ]
       ]
-      [ h2 [] [ text "Host" ]
-      , p [] [ text "Review the host you're publishing times as." ]
-      ]
-  , a [ PublishPage |> Page.toUrl |> href
-      , class "indexLink"
-      ]
-      [ h2 [] [ text "Publish times" ]
-      , p [] [ text "Publish times folks can book." ]
-      ]
-  , a [ BookingsPage |> Page.toUrl |> href
-      , class "indexLink"
-      ]
-      [ h2 [] [ text "Bookings" ]
-      , p [] [ text "When folk book times you've published they show up here." ]
-      ]
+    , a [ PublishPage |> Page.toUrl |> href ]
+        [ Html.h3 [] [ text "Publish times" ]
+        , p [] [ text "Publish times folks can book." ]
+        ]
+    , a [ BookingsPage |> Page.toUrl |> href ]
+        [ Html.h3 [] [ text "Bookings" ]
+        , p [] [ text "When folk book times you've published they show up here." ]
+        ]
+    ]
   ]
 
 sessionExpired : SS.Model -> Page -> List (Html msg)
@@ -310,6 +307,7 @@ view model =
         , div 
           [ class "content"
           , class "light" 
+          , class "app-view" 
           ] 
           (pageView model) 
         ] 
