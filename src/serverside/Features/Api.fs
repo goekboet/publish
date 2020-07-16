@@ -120,11 +120,9 @@ let addPublisher : HttpHandler =
 
             return! Successful.OK publisher next ctx
         }
-[<CLIMutable>]
-type TimeSubmission = { Start : int64; Name : string; End : int64 }
 
 [<CLIMutable>]
-type TimePayload = { Start : int64; Handle : string; Name : string; End : int64 }
+type TimePayload = { Start : int64; Handle : string; Name : string; End : int64; Booked : bool }
   
 let addTime : HttpHandler
     =
@@ -132,7 +130,7 @@ let addTime : HttpHandler
         task { 
             let! client = getAuthorizedClient ctx
 
-            let! payload = ctx.BindJsonAsync<TimeSubmission>()
+            let! payload = ctx.BindJsonAsync<TimePayload>()
             let publisher = getRegisteredPublisher ctx.User
             let json = 
                 JsonSerializer.ToJsonString<TimePayload>( 
@@ -140,7 +138,7 @@ let addTime : HttpHandler
                     ; Handle = publisher
                     ; Name = payload.Name
                     ; End = payload.End
-                    })
+                    ; Booked = payload.Booked})
 
             let p = new StringContent (json, Encoding.UTF8, "application/json")
             let! r = client.PostAsync ("/times", p)

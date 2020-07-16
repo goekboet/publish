@@ -17,6 +17,7 @@ import FontAwesome as FA
 import Json.Decode as Json
 import Json.Encode as Encode exposing (Value)
 import Url.Builder as Url
+import Page
 
 type alias Week = 
     { name : String
@@ -128,13 +129,14 @@ arrowKeyIncrement base incr msg =
 
 
 
-type alias StagedTime =
+type alias Time =
     { start : Int
     , end : Int
     , name: String
+    , booked : Bool
     }
 
-toStagedTime : Timepointer -> Maybe StagedTime
+toStagedTime : Timepointer -> Maybe Time
 toStagedTime tp =
     let
         endH = tp.selected + (tp.minutes + tp.duration) // 60
@@ -151,6 +153,7 @@ toStagedTime tp =
             { start = s.ts
             , end = e.ts + (endM * 60) 
             , name = s.name ++ ":" ++ (tp.minutes |> String.fromInt |> String.pad 2 '0') ++ " - " ++ e.name ++ ":" ++ (endM |> String.fromInt |> String.pad 2 '0') ++ " (" ++ (tp.duration |> String.fromInt) ++ " min)"
+            , booked = False
             }
     in
     Maybe.map2 f hs he 
@@ -189,7 +192,7 @@ init ts fetching =
     { weekpointer = ts.week
     , daypointer = dptr
     , timepointer = tptr
-    , data = if fetching then (Pending, []) else (Submitted, [])
+    , data = if fetching then (PendingList, []) else (Received, [])
     }
 
 recalculate : Model -> TsLookup -> Model
@@ -260,10 +263,10 @@ selectPause { weekpointer, daypointer, timepointer, data } p =
     , data = data
     }
 
-registerPending : TimepublishData -> StagedTime -> TimepublishData
-registerPending (status, data) t = (status, (Pending, t) :: data)
+registerPending : TimepublishData -> Time -> TimepublishData
+registerPending (status, data) t = (status, (PendingPost, t) :: data)
 
-updateStatus : TimepublishData -> Int -> RequestStatus -> TimepublishData
+updateStatus : TimepublishData -> Int -> Status -> TimepublishData
 updateStatus (status, data) id newStatus =
     let
         f (ts, t) = if t.start == id then (newStatus, t) else (ts, t)
@@ -281,15 +284,18 @@ removeTime (status, ts) id =
     
 
 setSubmitted : Model -> Int -> Model
-setSubmitted m id = { m | data = updateStatus m.data id Submitted }
+setSubmitted m id = { m | data = updateStatus m.data id Accepted }
 
 setError : Model -> Int -> Model
-setError m id = { m | data = updateStatus m.data id Errored }
+setError m id = { m | data = updateStatus m.data id ErroredPost }
+
+setUnpublishError : Model -> Int -> Model
+setUnpublishError m id = { m | data = updateStatus m.data id ErroredDelete }
 
 setPending : Model -> Int -> Model
-setPending m id = { m | data = updateStatus m.data id Pending }
+setPending m id = { m | data = updateStatus m.data id PendingPost }
 
-advance : Model -> Bool -> (Int -> (Result Http.Error StagedTime) -> msg) -> (Model, Cmd msg)
+advance : Model -> Bool -> (Int -> (Result Http.Error Time) -> msg) -> (Model, Cmd msg)
 advance { weekpointer, daypointer, timepointer, data } submit appMsg =
     let
         newSelected = timepointer.selected + (timepointer.duration + timepointer.pause) // 60
@@ -322,54 +328,62 @@ advance { weekpointer, daypointer, timepointer, data } submit appMsg =
     , submitCommand
     )
 
-type alias TimePublish =
-  { start : Int
-  , name : String
-  , end : Int
-  }
-
-fromTimePayload : Json.Decoder TimePublish
+fromTimePayload : Json.Decoder Time
 fromTimePayload =
-  Json.map3 TimePublish
+  Json.map4 Time
     (Json.field "start" Json.int)
-    (Json.field "name" Json.string)
     (Json.field "end" Json.int)
+    (Json.field "name" Json.string)
+    (Json.field "booked" Json.bool)
 
-toTimePayload : TimePublish -> Value
-toTimePayload { start, name, end } =
+toTimePayload : Time -> Value
+toTimePayload { start, name, end, booked } =
   Encode.object
     [ ("Start", Encode.int start)
     , ("Name", Encode.string name)
     , ("End", Encode.int end)
+    , ("Booked", Encode.bool booked)
     ]
 
-type RequestStatus 
-    = Submitted
-    | Pending 
-    | Errored 
+type Status 
+    = Accepted
+    | PendingPost 
+    | Booked
+    | ErroredPost
+    | ErroredDelete 
 
-type alias TimepublishSubmission = (RequestStatus, TimePublish)
+type ListStatus
+    = Received
+    | PendingList
+    | ErroredList
 
-type alias TimepublishData = (RequestStatus, (List TimepublishSubmission))
+type alias TimepublishSubmission = (Status, Time)
 
-refreshTimes : TimepublishData -> (List StagedTime) -> TimepublishData
+type alias TimepublishData = (ListStatus, (List TimepublishSubmission))
+
+refreshTimes : TimepublishData -> (List Time) -> TimepublishData
 refreshTimes (status, oldData) ts =
     let
         keep s =
             case s of
-            Submitted -> False
+            Accepted -> False
             _         -> True
+
+        setStatus t =
+            if t.booked
+            then (Booked, t)
+            else (Accepted, t)
 
         clientState = oldData
             |> List.filter (keep << Tuple.first)
     in
-        (Submitted, clientState ++ (ts |> List.map (Tuple.pair Submitted)))
+        (Received, clientState ++ (ts |> List.map setStatus))
 
 registerListTimesError : TimepublishData -> TimepublishData
-registerListTimesError (status, ts) = (Errored, ts)
+registerListTimesError (status, ts) = (ErroredList, ts)
 
 registerListTimesPending : TimepublishData -> TimepublishData
-registerListTimesPending (status, ts) = (Pending, ts)
+registerListTimesPending (status, ts) = (PendingList, ts)
 
 listTimes : (Msg -> msg) -> Weekpointer -> Cmd msg
 listTimes toAppMsg wp = 
@@ -388,7 +402,7 @@ listTimes toAppMsg wp =
     , expect = Http.expectJson (toAppMsg << GotTimes) (Json.list fromTimePayload)
     }
 
-submitTime : (Int -> (Result Http.Error StagedTime) -> msg) -> StagedTime -> Cmd msg
+submitTime : (Int -> (Result Http.Error Time) -> msg) -> Time -> Cmd msg
 submitTime response t  =
     Http.post
           { url = Url.absolute [ "api", "times"] []
@@ -417,8 +431,8 @@ type Msg
     | SelectDuration Int
     | SelectPause Int
     | Advance Bool
-    | TimeSubmitted Int (Result Http.Error StagedTime)
-    | GotTimes (Result Http.Error (List StagedTime))
+    | TimeSubmitted Int (Result Http.Error Time)
+    | GotTimes (Result Http.Error (List Time))
     | RefreshTimes
     | Unpublish Int
     | Unpublished Int (Result Http.Error ())
@@ -488,7 +502,7 @@ update m cmd toAppMsg =
         ( { m | data = removeTime m.data id }, Cmd.none)
 
     Unpublished id (Err _) ->
-        ( setError m id, Cmd.none)
+        ( setUnpublishError m id, Cmd.none)
 
     DismissError id ->
         ( { m | data = removeTime m.data id }, Cmd.none)
@@ -614,18 +628,35 @@ stagedTimeControl adv timepointer data =
 timePayloadView : (Msg -> msg) -> TimepublishSubmission -> List (Html msg)
 timePayloadView toAppMsg (status, t) = 
     case status of
-    Submitted -> 
+    Accepted -> 
         [ FA.fas_fa_check_circle 
         , Html.label [] [ Html.text t.name ]
         , Html.button 
           [ Event.onClick (Unpublish t.start |> toAppMsg)] 
           [ Html.text "unpublish" ]
         ]
-    Pending ->   
+    PendingPost ->   
         [ FA.fas_fa_sync_alt_rolls
         , Html.label [] [ Html.text t.name ] 
         ]
-    Errored ->  
+
+    Booked ->
+        [ FA.far_fa_calendar_check
+        , Html.label [] [ Html.text t.name ] 
+        , Html.a 
+          [ Page.BookingsPage |> Page.toUrl |> Attr.href ] 
+          [ Html.text "go to bookings"]
+        ]
+
+    ErroredDelete ->  
+        [ FA.fas_fa_exclamation_triangle
+        , Html.label [] [ Html.text ("Unpublish failed for " ++ t.name) ]
+        , Html.button 
+          [ Event.onClick (DismissError t.start |> toAppMsg)] 
+          [ Html.text "dismiss" ]
+        ]
+
+    ErroredPost ->  
         [ FA.fas_fa_exclamation_triangle
         , Html.label [] [ Html.text ("Submission failed for " ++ t.name) ]
         , Html.button 
@@ -644,7 +675,7 @@ timepublishDataView toAppMsg (status, data) dp =
           |> List.sortBy (.start << Tuple.second)   
     in
     case status of
-    Submitted -> 
+    Received -> 
         [ Html.span [] 
           [ Html.button 
             [ Event.onClick (toAppMsg RefreshTimes) ] 
@@ -652,13 +683,14 @@ timepublishDataView toAppMsg (status, data) dp =
           , Html.h3 [] [ Html.text "Published times: " ]
           ]
         , List.map (Html.li [] << timePayloadView toAppMsg) ts |> Html.ul []  ]
-    Pending -> 
+    PendingList -> 
         [ Html.span [] 
           [ FA.fas_fa_sync_alt_rolls
           , Html.h3 [] [ Html.text "Published times:" ]
           ]
         , List.map (Html.li [] << timePayloadView toAppMsg) ts |> Html.ul []  ]
-    Errored -> 
+    
+    ErroredList -> 
         [ Html.span [ ] 
             [ Html.button 
               [ Event.onClick (toAppMsg RefreshTimes) ] 
