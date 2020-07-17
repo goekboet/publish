@@ -147,8 +147,9 @@ let webApp =
     choose [
         GET >=> 
             choose [
-                route "/api/times"       >=> mustBeLoggedIn >=> requiresRegisteredPublisher >=> listTimes;
-                route "/anticsrf"        >=> renewAntiforgery;
+                route "/api/times"        >=> mustBeLoggedIn >=> requiresRegisteredPublisher >=> listTimes;
+                route "/api/appointments" >=> mustBeLoggedIn >=> listAppointments
+                route "/anticsrf"         >=> renewAntiforgery;
                 withAntiforgery layout
             ] 
             

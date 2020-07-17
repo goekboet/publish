@@ -1,6 +1,5 @@
-port module Publish exposing 
-    ( TsLookup
-    , Model
+module Publish exposing 
+    ( Model
     , init
     , listTimes
     , view
@@ -18,49 +17,16 @@ import Json.Decode as Json
 import Json.Encode as Encode exposing (Value)
 import Url.Builder as Url
 import Page
+import Weekpointer as WP exposing (Weekpointer)
 
-type alias Week = 
-    { name : String
-    , ts: Int
-    , isNow : Bool
-    }
 
-type alias Hour =
-    { name : String
-    , ts: Int
-    , isNow : Bool
-    }
-
-type alias Day = 
-    { key: String
-    , name: String
-    , start: Int
-    , end : Int
-    , isNow : Bool
-    , hours: List Hour
-    }
-
-type alias Weekpointer =
-    { current: Week
-    , previous: Week
-    , next : Week
-    }
-
-getWeekWindow : Weekpointer -> (Int, Int)
-getWeekWindow { current, previous, next } =
-    (current.ts, next.ts)
-
-type alias TsLookup =
-    { week : Weekpointer
-    , days : List Day
-    }
 
 type alias Daypointer = 
-    { days: List Day
+    { days: List WP.Day
     , selectedDay : Int
     }
 
-initDaypointer : TsLookup -> Daypointer
+initDaypointer : WP.TsLookup -> Daypointer
 initDaypointer ts =
     let
         today = ts.days
@@ -72,13 +38,13 @@ initDaypointer ts =
     in
         { days = ts.days, selectedDay = today }
 
-getSelectedDay : Daypointer -> Maybe Day
+getSelectedDay : Daypointer -> Maybe WP.Day
 getSelectedDay dptr =
     dptr.days
     |> List.drop dptr.selectedDay
     |> List.head
 
-getSelectedHours : Daypointer -> List Hour
+getSelectedHours : Daypointer -> List WP.Hour
 getSelectedHours dptr =
     getSelectedDay dptr
     |> Maybe.map .hours
@@ -90,7 +56,7 @@ getSelectedHours dptr =
     
 
 type alias Timepointer =
-    { hours : List Hour
+    { hours : List WP.Hour
     , selected : Int
     , minutes : Int
     , duration : Int
@@ -183,7 +149,7 @@ type alias Model =
     , data: TimepublishData
     }
 
-init : TsLookup -> Bool -> Model
+init : WP.TsLookup -> Bool -> Model
 init ts fetching =
     let
         dptr = initDaypointer ts
@@ -195,7 +161,7 @@ init ts fetching =
     , data = if fetching then (PendingList, []) else (Received, [])
     }
 
-recalculate : Model -> TsLookup -> Model
+recalculate : Model -> WP.TsLookup -> Model
 recalculate { weekpointer, daypointer, timepointer, data } ts =
     let
        newDptr = { daypointer | days = ts.days } 
@@ -393,7 +359,7 @@ listTimes toAppMsg wp =
           , Url.int "to" t
           ]
         q = 
-          getWeekWindow wp
+          WP.getWeekWindow wp
           |> toQ
 
     in
@@ -424,7 +390,7 @@ unpublishTime id toAppMsg =
 
 type Msg 
     = Move (Maybe Int)
-    | New TsLookup
+    | New WP.TsLookup
     | SelectDay Int
     | SelectHour Int
     | SelectMinute Int
@@ -438,18 +404,15 @@ type Msg
     | Unpublished Int (Result Http.Error ())
     | DismissError Int
 
-port moveWeekpointer : (Maybe Int) -> Cmd msg
-port newWeekpointer : (TsLookup -> msg) -> Sub msg
-
 subscribe : (Msg -> msg) -> Sub msg 
 subscribe toAppmsg =
-    newWeekpointer (toAppmsg << New)
+    WP.newWeekpointer (toAppmsg << New)
 
 update : Model -> Msg -> (Msg -> msg) -> (Model, Cmd msg)
 update m cmd toAppMsg =
     case cmd of
     Move ts -> 
-        ( m, moveWeekpointer ts )
+        ( m, WP.moveWeekpointer ts )
 
     New lookup -> 
         let
@@ -644,7 +607,7 @@ timePayloadView toAppMsg (status, t) =
         [ FA.far_fa_calendar_check
         , Html.label [] [ Html.text t.name ] 
         , Html.a 
-          [ Page.BookingsPage |> Page.toUrl |> Attr.href ] 
+          [ Page.AppointmentsPage |> Page.toUrl |> Attr.href ] 
           [ Html.text "go to bookings"]
         ]
 

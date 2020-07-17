@@ -9,10 +9,11 @@ import Hostname as HN
 import Url exposing (Url)
 import Page exposing (Page(..))
 import SessionState as SS
-import Bookings exposing (bookingsView, mockedbookings)
+import Appointments  exposing (view)
 import Url.Builder exposing (absolute)
 import FontAwesome as FA
 import Publish
+import Weekpointer as WP exposing (Weekpointer)
 
 -- MAIN
 
@@ -37,7 +38,7 @@ type alias Flags =
   , username: Maybe SS.Username
   , hostName: Maybe String
   , hostHandle: Maybe String
-  , tsLookup: Publish.TsLookup
+  , tsLookup: WP.TsLookup
   }
 
 type alias Model =
@@ -46,6 +47,7 @@ type alias Model =
   , sessionState : SS.Model
   , hostnameSubmission : HN.Model
   , publish : Publish.Model
+  , appointments : Appointments.Model
   }
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -66,16 +68,17 @@ init flags url key =
     , sessionState = sessionState
     , hostnameSubmission = HN.init flags.hostName flags.hostHandle
     , publish = publishModel
+    , appointments = Appointments.init flags.tsLookup.week
     }
   , case route of
     Just HomePage      -> Cmd.none
-    Just BookingsPage  -> Cmd.none
+    Just AppointmentsPage  -> 
+      Appointments.listAppointments AppointmentsMessage flags.tsLookup.week
     Just HostPage      -> Cmd.none
     Just PublishPage   -> 
       if fetchTimes
       then Publish.listTimes PublishMessage publishModel.weekpointer
       else Cmd.none 
-    Just AppointmentPage -> Cmd.none
     Nothing       -> Cmd.none
   )
  
@@ -89,6 +92,7 @@ type Msg
   | HostSubmissionUpdate HN.Msg
   | GotNewAnticsrf (Result Error String)
   | PublishMessage Publish.Msg
+  | AppointmentsMessage Appointments.Msg
   
 
 getNewAntiscrf : Cmd Msg
@@ -154,6 +158,14 @@ update msg model =
         , cmd
         )
 
+    AppointmentsMessage message ->
+      let
+          (pubModel, cmd) = Appointments.update model.appointments message AppointmentsMessage
+      in
+        ( { model | appointments = pubModel }
+        , cmd
+        )
+
     
 
     
@@ -162,10 +174,12 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-  Sub.batch
-    [ Publish.subscribe PublishMessage
-    ]
+subscriptions m =
+  case m.page of
+  Just Page.PublishPage -> Publish.subscribe PublishMessage
+  Just Page.AppointmentsPage -> Appointments.subscribe AppointmentsMessage
+  _ -> Sub.none
+
 
 
 
@@ -220,8 +234,8 @@ index =
         [ Html.h3 [] [ text "Publish times" ]
         , p [] [ text "Publish times folks can book." ]
         ]
-    , a [ BookingsPage |> Page.toUrl |> href ]
-        [ Html.h3 [] [ text "Bookings" ]
+    , a [ AppointmentsPage |> Page.toUrl |> href ]
+        [ Html.h3 [] [ text "Appointments" ]
         , p [] [ text "When folk book times you've published they show up here." ]
         ]
     ]
@@ -258,12 +272,9 @@ brokenLinkView =
     ]
   ]
 
-bookingsPage : Model -> List (Html Msg)
-bookingsPage m = 
-  [ h2 [] [ text "My bookings"] 
-  , p [] [ text "Any times booked by someone will show up here."]
-  , bookingsView mockedbookings
-  ]
+appointmentsPage : Model -> List (Html Msg)
+appointmentsPage m = Appointments.view AppointmentsMessage m.appointments
+  
 
 hostPage : Model -> List (Html Msg)
 hostPage m = HN.view HostSubmissionUpdate m.hostnameSubmission
@@ -284,17 +295,14 @@ pageView m =
   (Just HomePage,        False, _       ) -> welcome m.sessionState
   (Just HomePage,        True,  Nothing ) -> registerHostname
   (Just HomePage,        True,  Just _  ) -> index
-  (Just BookingsPage,    False, _       ) -> sessionExpired m.sessionState BookingsPage
-  (Just BookingsPage,    True,  Nothing ) -> hostnameRequired
-  (Just BookingsPage,    True,  Just _  ) -> bookingsPage m
+  (Just AppointmentsPage,    False, _       ) -> sessionExpired m.sessionState AppointmentsPage
+  (Just AppointmentsPage,    True,  Nothing ) -> hostnameRequired
+  (Just AppointmentsPage,    True,  Just _  ) -> appointmentsPage m
   (Just HostPage,        False, _       ) -> sessionExpired m.sessionState HostPage
   (Just HostPage,        True,  _       ) -> hostPage m
   (Just PublishPage,     False, _       ) -> sessionExpired m.sessionState PublishPage
   (Just PublishPage,     True,  Nothing ) -> hostnameRequired
   (Just PublishPage,     True,  Just _  ) -> publishPage m
-  (Just AppointmentPage, False, _       ) -> sessionExpired m.sessionState AppointmentPage
-  (Just AppointmentPage, True,  Nothing ) -> hostnameRequired
-  (Just AppointmentPage, True,  Just _  ) -> appointmentPage
   (Nothing,              _,     _       ) -> brokenLinkView
 
 view : Model -> Browser.Document Msg

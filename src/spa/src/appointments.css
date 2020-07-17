@@ -1,0 +1,41 @@
+.appointmentsRefresh {
+    display: flex;
+    align-items: baseline;
+}
+
+.appointmentsRefresh > label {
+    flex-grow: 1;
+}
+
+.appointmentsRefresh > button {
+    padding: 0.5em;
+    margin-left: 1em;
+    border-radius: 5px;
+    border: solid;
+    border-width: thin;
+}
+
+.appointmentsList {
+    display: flex;
+    flex-direction: column;
+    overflow-y: scroll;
+}
+
+.appointmentsList li {
+    display: flex;
+    align-items: baseline;
+    margin-top: 0.5em;
+}
+
+.appointmentsList li > label {
+    flex-grow: 1;
+    margin-left: 1em;
+}
+
+.appointmentsList button {
+    font-weight: bold;
+}
+
+.appointmentsList button:disabled {
+    opacity: 0.5;
+}

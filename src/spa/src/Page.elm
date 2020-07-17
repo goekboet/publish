@@ -12,10 +12,9 @@ import Url.Builder as UrlB
 
 type Page
     = HomePage 
-    | BookingsPage 
+    | AppointmentsPage 
     | HostPage 
     | PublishPage 
-    | AppointmentPage 
 
 
 fromUrl : Url -> Maybe Page
@@ -25,19 +24,18 @@ route : Parser (Page -> a) a
 route =
     UrlP.oneOf
         [ UrlP.map HomePage UrlP.top 
-        , UrlP.map BookingsPage (UrlP.s "bookings")
+        , UrlP.map AppointmentsPage (UrlP.s "appointments")
         , UrlP.map HostPage (UrlP.s "host")
         , UrlP.map PublishPage (UrlP.s "publish")
-        , UrlP.map AppointmentPage (UrlP.s "appointment") ]
+        ]
 
 toUrl : Page -> String
 toUrl r = 
     case r of
         HomePage -> UrlB.absolute [] [] 
-        BookingsPage -> UrlB.absolute [ "bookings" ] []
+        AppointmentsPage -> UrlB.absolute [ "appointments" ] []
         HostPage -> UrlB.absolute [ "host" ] []
         PublishPage -> UrlB.absolute [ "publish" ] [] 
-        AppointmentPage -> UrlB.absolute [ "appointment" ] [] 
             
 loginUrl : Page -> String
 loginUrl r =

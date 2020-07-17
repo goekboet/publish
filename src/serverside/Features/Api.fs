@@ -215,3 +215,36 @@ let unPublish (id : int) : HttpHandler
             
             return (Some ctx)
         }
+
+[<CLIMutable>]
+type BookedTimeListing = 
+    { [<JsonPropertyName("start")>] Start : int64
+    ; [<JsonPropertyName("handle")>] Handle : string
+    ; [<JsonPropertyName("name")>] Name : string
+    ; [<JsonPropertyName("end")>] End : int64 
+    ; [<JsonPropertyName("booker")>] Booker : string
+    }
+
+ let listAppointments : HttpHandler
+    = fun (next : HttpFunc) (ctx : HttpContext) ->
+        task { 
+            let! client = getAuthorizedClient ctx
+
+            let f = 
+                ctx.TryGetQueryStringValue "from"
+                |> Option.map int
+                |> Option.defaultValue 0
+
+            let t =
+                ctx.TryGetQueryStringValue "to"
+                |> Option.map int
+                |> Option.defaultValue 0
+            
+            let url = sprintf "/appointments?from=%i&to=%i" f t
+            let! r = client.GetAsync(url)
+
+            ctx.SetStatusCode (int r.StatusCode)
+            do! r.Content.CopyToAsync ctx.Response.Body
+                
+            return (Some ctx)
+        }
