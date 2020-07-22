@@ -47,6 +47,7 @@ do
     fi
     i=$((i + 1));
 done
+
 echo "dist: $dist"
 echo "dest: $dest"
 
@@ -59,7 +60,12 @@ else build $dist
 fi
 
 echo "Concatenate stylesheets."
-cat $(find src -type f -name "*.css") > $dist/style.css
+cat $(find src/styles/app -type f -name "*.css") > $dist/app.css
+
+if [ $dest != "prod" ]; then
+    cat $(find src/styles/common -type f -name "*.css") > "$dist/../common.css"
+fi
+
 echo "Copy static assets."
 cp src/favicon.ico $dist/favicon.ico
 
